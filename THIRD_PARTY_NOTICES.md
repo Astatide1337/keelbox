@@ -36,3 +36,141 @@ Packages inspected: 30. The Inter variable font is distributed under the SIL Ope
 | typescript | 5.9.3 | Apache-2.0 | [typescript-5.9.3/LICENSE.txt](dist/ui/licenses/typescript-5.9.3/LICENSE.txt), [typescript-5.9.3/ThirdPartyNoticeText.txt](dist/ui/licenses/typescript-5.9.3/ThirdPartyNoticeText.txt) |
 | yaml | 2.9.1 | ISC | [yaml-2.9.1/LICENSE](dist/ui/licenses/yaml-2.9.1/LICENSE) |
 | zod | 4.6.5 | MIT | [zod-4.6.5/LICENSE](dist/ui/licenses/zod-4.6.5/LICENSE) |
+
+## Next.js vendored dependencies
+
+Next.js 16.4.0 ships 131 embedded third-party license and notice files. Each file below is copied verbatim from next/dist/compiled; package names, versions, and declared licenses come from the nearest bundled package.json.
+
+| Bundled package | Version | Declared license | Included notice file |
+| --- | --- | --- | --- |
+| @babel/runtime | 7.27.0 | MIT | [next-compiled/@babel/runtime/LICENSE](dist/ui/licenses/next-compiled/@babel/runtime/LICENSE) |
+| @hapi/accept | not declared in bundled package metadata | BSD-3-Clause | [next-compiled/@hapi/accept/LICENSE](dist/ui/licenses/next-compiled/@hapi/accept/LICENSE) |
+| @mswjs/interceptors | not declared in bundled package metadata | MIT | [next-compiled/@mswjs/interceptors/ClientRequest/LICENSE](dist/ui/licenses/next-compiled/@mswjs/interceptors/ClientRequest/LICENSE) |
+| @napi-rs/triples | not declared in bundled package metadata | MIT | [next-compiled/@napi-rs/triples/LICENSE](dist/ui/licenses/next-compiled/@napi-rs/triples/LICENSE) |
+| @opentelemetry/api | not declared in bundled package metadata | Apache-2.0 | [next-compiled/@opentelemetry/api/LICENSE](dist/ui/licenses/next-compiled/@opentelemetry/api/LICENSE) |
+| @vercel/blob | not declared in bundled package metadata | Apache-2.0 | [next-compiled/@vercel/blob/LICENSE](dist/ui/licenses/next-compiled/@vercel/blob/LICENSE) |
+| @vercel/detect-agent | not declared in bundled package metadata | Apache-2.0 | [next-compiled/@vercel/detect-agent/LICENSE](dist/ui/licenses/next-compiled/@vercel/detect-agent/LICENSE) |
+| @vercel/nft | not declared in bundled package metadata | MIT | [next-compiled/@vercel/nft/LICENSE](dist/ui/licenses/next-compiled/@vercel/nft/LICENSE) |
+| @vercel/og | 1.0.1 | MPL-2.0 | [next-compiled/@vercel/og/LICENSE](dist/ui/licenses/next-compiled/@vercel/og/LICENSE) |
+| @vercel/og | 1.0.1 | MPL-2.0 | [next-compiled/@vercel/og/satori/LICENSE](dist/ui/licenses/next-compiled/@vercel/og/satori/LICENSE) |
+| @vercel/routing-utils | not declared in bundled package metadata | Apache-2.0 | [next-compiled/@vercel/routing-utils/LICENSE](dist/ui/licenses/next-compiled/@vercel/routing-utils/LICENSE) |
+| acorn | not declared in bundled package metadata | MIT | [next-compiled/acorn/LICENSE](dist/ui/licenses/next-compiled/acorn/LICENSE) |
+| anser | not declared in bundled package metadata | MIT | [next-compiled/anser/LICENSE](dist/ui/licenses/next-compiled/anser/LICENSE) |
+| assert | not declared in bundled package metadata | MIT | [next-compiled/assert/LICENSE](dist/ui/licenses/next-compiled/assert/LICENSE) |
+| async-retry | not declared in bundled package metadata | MIT | [next-compiled/async-retry/LICENSE](dist/ui/licenses/next-compiled/async-retry/LICENSE) |
+| async-sema | not declared in bundled package metadata | MIT | [next-compiled/async-sema/LICENSE](dist/ui/licenses/next-compiled/async-sema/LICENSE) |
+| @babel/core | not declared in bundled package metadata | MIT | [next-compiled/babel/LICENSE](dist/ui/licenses/next-compiled/babel/LICENSE) |
+| browserify-zlib | not declared in bundled package metadata | MIT | [next-compiled/browserify-zlib/LICENSE](dist/ui/licenses/next-compiled/browserify-zlib/LICENSE) |
+| browserslist | not declared in bundled package metadata | MIT | [next-compiled/browserslist/LICENSE](dist/ui/licenses/next-compiled/browserslist/LICENSE) |
+| buffer | not declared in bundled package metadata | MIT | [next-compiled/buffer/LICENSE](dist/ui/licenses/next-compiled/buffer/LICENSE) |
+| busboy | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/busboy/LICENSE](dist/ui/licenses/next-compiled/busboy/LICENSE) |
+| bytes | not declared in bundled package metadata | MIT | [next-compiled/bytes/LICENSE](dist/ui/licenses/next-compiled/bytes/LICENSE) |
+| ci-info | not declared in bundled package metadata | MIT | [next-compiled/ci-info/LICENSE](dist/ui/licenses/next-compiled/ci-info/LICENSE) |
+| cli-select | not declared in bundled package metadata | MIT | [next-compiled/cli-select/LICENSE](dist/ui/licenses/next-compiled/cli-select/LICENSE) |
+| commander | not declared in bundled package metadata | MIT | [next-compiled/commander/LICENSE](dist/ui/licenses/next-compiled/commander/LICENSE) |
+| comment-json | not declared in bundled package metadata | MIT | [next-compiled/comment-json/LICENSE](dist/ui/licenses/next-compiled/comment-json/LICENSE) |
+| compression | not declared in bundled package metadata | MIT | [next-compiled/compression/LICENSE](dist/ui/licenses/next-compiled/compression/LICENSE) |
+| conf | not declared in bundled package metadata | MIT | [next-compiled/conf/LICENSE](dist/ui/licenses/next-compiled/conf/LICENSE) |
+| content-disposition | not declared in bundled package metadata | MIT | [next-compiled/content-disposition/LICENSE](dist/ui/licenses/next-compiled/content-disposition/LICENSE) |
+| content-type | not declared in bundled package metadata | MIT | [next-compiled/content-type/LICENSE](dist/ui/licenses/next-compiled/content-type/LICENSE) |
+| cookie | not declared in bundled package metadata | MIT | [next-compiled/cookie/LICENSE](dist/ui/licenses/next-compiled/cookie/LICENSE) |
+| cross-spawn | not declared in bundled package metadata | MIT | [next-compiled/cross-spawn/LICENSE](dist/ui/licenses/next-compiled/cross-spawn/LICENSE) |
+| crypto-browserify | not declared in bundled package metadata | MIT | [next-compiled/crypto-browserify/LICENSE](dist/ui/licenses/next-compiled/crypto-browserify/LICENSE) |
+| debug | not declared in bundled package metadata | MIT | [next-compiled/debug/LICENSE](dist/ui/licenses/next-compiled/debug/LICENSE) |
+| devalue | not declared in bundled package metadata | MIT | [next-compiled/devalue/LICENSE](dist/ui/licenses/next-compiled/devalue/LICENSE) |
+| domain-browser | not declared in bundled package metadata | MIT | [next-compiled/domain-browser/LICENSE](dist/ui/licenses/next-compiled/domain-browser/LICENSE) |
+| edge-runtime | not declared in bundled package metadata | MIT | [next-compiled/edge-runtime/LICENSE](dist/ui/licenses/next-compiled/edge-runtime/LICENSE) |
+| events | not declared in bundled package metadata | MIT | [next-compiled/events/LICENSE](dist/ui/licenses/next-compiled/events/LICENSE) |
+| find-up | not declared in bundled package metadata | MIT | [next-compiled/find-up/LICENSE](dist/ui/licenses/next-compiled/find-up/LICENSE) |
+| fresh | not declared in bundled package metadata | MIT | [next-compiled/fresh/LICENSE](dist/ui/licenses/next-compiled/fresh/LICENSE) |
+| glob | not declared in bundled package metadata | ISC | [next-compiled/glob/LICENSE](dist/ui/licenses/next-compiled/glob/LICENSE) |
+| gzip-size | not declared in bundled package metadata | MIT | [next-compiled/gzip-size/LICENSE](dist/ui/licenses/next-compiled/gzip-size/LICENSE) |
+| hash.js | not declared in bundled package metadata | MIT | [next-compiled/hash.js/sha256/LICENSE](dist/ui/licenses/next-compiled/hash.js/sha256/LICENSE) |
+| https-browserify | not declared in bundled package metadata | MIT | [next-compiled/https-browserify/LICENSE](dist/ui/licenses/next-compiled/https-browserify/LICENSE) |
+| httpxy | not declared in bundled package metadata | MIT | [next-compiled/httpxy/LICENSE](dist/ui/licenses/next-compiled/httpxy/LICENSE) |
+| icss-utils | not declared in bundled package metadata | ISC | [next-compiled/icss-utils/LICENSE](dist/ui/licenses/next-compiled/icss-utils/LICENSE) |
+| ignore-loader | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/ignore-loader/LICENSE](dist/ui/licenses/next-compiled/ignore-loader/LICENSE) |
+| image-size | not declared in bundled package metadata | MIT | [next-compiled/image-size/LICENSE](dist/ui/licenses/next-compiled/image-size/LICENSE) |
+| ipaddr.js | not declared in bundled package metadata | MIT | [next-compiled/ipaddr.js/LICENSE](dist/ui/licenses/next-compiled/ipaddr.js/LICENSE) |
+| is-animated | not declared in bundled package metadata | MIT | [next-compiled/is-animated/LICENSE](dist/ui/licenses/next-compiled/is-animated/LICENSE) |
+| is-docker | not declared in bundled package metadata | MIT | [next-compiled/is-docker/LICENSE](dist/ui/licenses/next-compiled/is-docker/LICENSE) |
+| is-wsl | not declared in bundled package metadata | MIT | [next-compiled/is-wsl/LICENSE](dist/ui/licenses/next-compiled/is-wsl/LICENSE) |
+| jest-worker | not declared in bundled package metadata | MIT | [next-compiled/jest-worker/LICENSE](dist/ui/licenses/next-compiled/jest-worker/LICENSE) |
+| json5 | not declared in bundled package metadata | MIT | [next-compiled/json5/LICENSE](dist/ui/licenses/next-compiled/json5/LICENSE) |
+| jsonwebtoken | not declared in bundled package metadata | MIT | [next-compiled/jsonwebtoken/LICENSE](dist/ui/licenses/next-compiled/jsonwebtoken/LICENSE) |
+| loader-runner | not declared in bundled package metadata | MIT | [next-compiled/loader-runner/LICENSE](dist/ui/licenses/next-compiled/loader-runner/LICENSE) |
+| loader-utils | not declared in bundled package metadata | MIT | [next-compiled/loader-utils2/LICENSE](dist/ui/licenses/next-compiled/loader-utils2/LICENSE) |
+| loader-utils | not declared in bundled package metadata | MIT | [next-compiled/loader-utils3/LICENSE](dist/ui/licenses/next-compiled/loader-utils3/LICENSE) |
+| lodash.curry | not declared in bundled package metadata | MIT | [next-compiled/lodash.curry/LICENSE](dist/ui/licenses/next-compiled/lodash.curry/LICENSE) |
+| lru-cache | not declared in bundled package metadata | ISC | [next-compiled/lru-cache/LICENSE](dist/ui/licenses/next-compiled/lru-cache/LICENSE) |
+| mini-css-extract-plugin | not declared in bundled package metadata | MIT | [next-compiled/mini-css-extract-plugin/LICENSE](dist/ui/licenses/next-compiled/mini-css-extract-plugin/LICENSE) |
+| nanoid | not declared in bundled package metadata | MIT | [next-compiled/nanoid/LICENSE](dist/ui/licenses/next-compiled/nanoid/LICENSE) |
+| native-url | not declared in bundled package metadata | Apache-2.0 | [next-compiled/native-url/LICENSE](dist/ui/licenses/next-compiled/native-url/LICENSE) |
+| neo-async | not declared in bundled package metadata | MIT | [next-compiled/neo-async/LICENSE](dist/ui/licenses/next-compiled/neo-async/LICENSE) |
+| node-html-parser | not declared in bundled package metadata | MIT | [next-compiled/node-html-parser/LICENSE](dist/ui/licenses/next-compiled/node-html-parser/LICENSE) |
+| ora | not declared in bundled package metadata | MIT | [next-compiled/ora/LICENSE](dist/ui/licenses/next-compiled/ora/LICENSE) |
+| os-browserify | not declared in bundled package metadata | MIT | [next-compiled/os-browserify/LICENSE](dist/ui/licenses/next-compiled/os-browserify/LICENSE) |
+| p-limit | not declared in bundled package metadata | MIT | [next-compiled/p-limit/LICENSE](dist/ui/licenses/next-compiled/p-limit/LICENSE) |
+| p-queue | not declared in bundled package metadata | MIT | [next-compiled/p-queue/LICENSE](dist/ui/licenses/next-compiled/p-queue/LICENSE) |
+| path-browserify | not declared in bundled package metadata | MIT | [next-compiled/path-browserify/LICENSE](dist/ui/licenses/next-compiled/path-browserify/LICENSE) |
+| path-to-regexp | not declared in bundled package metadata | MIT | [next-compiled/path-to-regexp/LICENSE](dist/ui/licenses/next-compiled/path-to-regexp/LICENSE) |
+| picomatch | not declared in bundled package metadata | MIT | [next-compiled/picomatch/LICENSE](dist/ui/licenses/next-compiled/picomatch/LICENSE) |
+| postcss-flexbugs-fixes | not declared in bundled package metadata | MIT | [next-compiled/postcss-flexbugs-fixes/LICENSE](dist/ui/licenses/next-compiled/postcss-flexbugs-fixes/LICENSE) |
+| postcss-modules-extract-imports | not declared in bundled package metadata | ISC | [next-compiled/postcss-modules-extract-imports/LICENSE](dist/ui/licenses/next-compiled/postcss-modules-extract-imports/LICENSE) |
+| postcss-modules-local-by-default | not declared in bundled package metadata | MIT | [next-compiled/postcss-modules-local-by-default/LICENSE](dist/ui/licenses/next-compiled/postcss-modules-local-by-default/LICENSE) |
+| postcss-modules-scope | not declared in bundled package metadata | ISC | [next-compiled/postcss-modules-scope/LICENSE](dist/ui/licenses/next-compiled/postcss-modules-scope/LICENSE) |
+| postcss-modules-values | not declared in bundled package metadata | ISC | [next-compiled/postcss-modules-values/LICENSE](dist/ui/licenses/next-compiled/postcss-modules-values/LICENSE) |
+| postcss-preset-env | not declared in bundled package metadata | CC0-1.0 | [next-compiled/postcss-preset-env/LICENSE](dist/ui/licenses/next-compiled/postcss-preset-env/LICENSE) |
+| postcss-safe-parser | not declared in bundled package metadata | MIT | [next-compiled/postcss-safe-parser/LICENSE](dist/ui/licenses/next-compiled/postcss-safe-parser/LICENSE) |
+| postcss-scss | not declared in bundled package metadata | MIT | [next-compiled/postcss-scss/LICENSE](dist/ui/licenses/next-compiled/postcss-scss/LICENSE) |
+| postcss-value-parser | not declared in bundled package metadata | MIT | [next-compiled/postcss-value-parser/LICENSE](dist/ui/licenses/next-compiled/postcss-value-parser/LICENSE) |
+| process | not declared in bundled package metadata | MIT | [next-compiled/process/LICENSE](dist/ui/licenses/next-compiled/process/LICENSE) |
+| querystring-es3 | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/querystring-es3/LICENSE](dist/ui/licenses/next-compiled/querystring-es3/LICENSE) |
+| raw-body | not declared in bundled package metadata | MIT | [next-compiled/raw-body/LICENSE](dist/ui/licenses/next-compiled/raw-body/LICENSE) |
+| react-dom-experimental-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-dom-experimental/LICENSE](dist/ui/licenses/next-compiled/react-dom-experimental/LICENSE) |
+| react-dom-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-dom/LICENSE](dist/ui/licenses/next-compiled/react-dom/LICENSE) |
+| react-experimental-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-experimental/LICENSE](dist/ui/licenses/next-compiled/react-experimental/LICENSE) |
+| react-is | 19.3.0-canary-278794d7-20261002 | MIT | [next-compiled/react-is/LICENSE](dist/ui/licenses/next-compiled/react-is/LICENSE) |
+| react-refresh | 0.12.0 | MIT | [next-compiled/react-refresh/LICENSE](dist/ui/licenses/next-compiled/react-refresh/LICENSE) |
+| react-server-dom-turbopack-experimental-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-server-dom-turbopack-experimental/LICENSE](dist/ui/licenses/next-compiled/react-server-dom-turbopack-experimental/LICENSE) |
+| react-server-dom-turbopack-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-server-dom-turbopack/LICENSE](dist/ui/licenses/next-compiled/react-server-dom-turbopack/LICENSE) |
+| react-server-dom-webpack-experimental-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-server-dom-webpack-experimental/LICENSE](dist/ui/licenses/next-compiled/react-server-dom-webpack-experimental/LICENSE) |
+| react-server-dom-webpack-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react-server-dom-webpack/LICENSE](dist/ui/licenses/next-compiled/react-server-dom-webpack/LICENSE) |
+| react-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/react/LICENSE](dist/ui/licenses/next-compiled/react/LICENSE) |
+| regenerator-runtime | 0.13.4 | MIT | [next-compiled/regenerator-runtime/LICENSE](dist/ui/licenses/next-compiled/regenerator-runtime/LICENSE) |
+| safe-stable-stringify | not declared in bundled package metadata | MIT | [next-compiled/safe-stable-stringify/LICENSE](dist/ui/licenses/next-compiled/safe-stable-stringify/LICENSE) |
+| sass-loader | not declared in bundled package metadata | MIT | [next-compiled/sass-loader/LICENSE](dist/ui/licenses/next-compiled/sass-loader/LICENSE) |
+| scheduler-experimental-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/scheduler-experimental/LICENSE](dist/ui/licenses/next-compiled/scheduler-experimental/LICENSE) |
+| scheduler-builtin | not declared in bundled package metadata | unspecified by bundled package metadata | [next-compiled/scheduler/LICENSE](dist/ui/licenses/next-compiled/scheduler/LICENSE) |
+| schema-utils | not declared in bundled package metadata | MIT | [next-compiled/schema-utils2/LICENSE](dist/ui/licenses/next-compiled/schema-utils2/LICENSE) |
+| schema-utils | not declared in bundled package metadata | MIT | [next-compiled/schema-utils3/LICENSE](dist/ui/licenses/next-compiled/schema-utils3/LICENSE) |
+| semver | not declared in bundled package metadata | ISC | [next-compiled/semver/LICENSE](dist/ui/licenses/next-compiled/semver/LICENSE) |
+| send | not declared in bundled package metadata | MIT | [next-compiled/send/LICENSE](dist/ui/licenses/next-compiled/send/LICENSE) |
+| serve-handler | not declared in bundled package metadata | MIT | [next-compiled/serve-handler/LICENSE](dist/ui/licenses/next-compiled/serve-handler/LICENSE) |
+| shell-quote | not declared in bundled package metadata | MIT | [next-compiled/shell-quote/LICENSE](dist/ui/licenses/next-compiled/shell-quote/LICENSE) |
+| source-map | not declared in bundled package metadata | BSD-3-Clause | [next-compiled/source-map/LICENSE](dist/ui/licenses/next-compiled/source-map/LICENSE) |
+| source-map08 | not declared in bundled package metadata | BSD-3-Clause | [next-compiled/source-map08/LICENSE](dist/ui/licenses/next-compiled/source-map08/LICENSE) |
+| stacktrace-parser | not declared in bundled package metadata | MIT | [next-compiled/stacktrace-parser/LICENSE](dist/ui/licenses/next-compiled/stacktrace-parser/LICENSE) |
+| stream-browserify | not declared in bundled package metadata | MIT | [next-compiled/stream-browserify/LICENSE](dist/ui/licenses/next-compiled/stream-browserify/LICENSE) |
+| stream-http | not declared in bundled package metadata | MIT | [next-compiled/stream-http/LICENSE](dist/ui/licenses/next-compiled/stream-http/LICENSE) |
+| string_decoder | not declared in bundled package metadata | MIT | [next-compiled/string_decoder/LICENSE](dist/ui/licenses/next-compiled/string_decoder/LICENSE) |
+| strip-ansi | not declared in bundled package metadata | MIT | [next-compiled/strip-ansi/LICENSE](dist/ui/licenses/next-compiled/strip-ansi/LICENSE) |
+| superstruct | not declared in bundled package metadata | MIT | [next-compiled/superstruct/LICENSE](dist/ui/licenses/next-compiled/superstruct/LICENSE) |
+| tar | not declared in bundled package metadata | BlueOak-1.0.0 | [next-compiled/tar/LICENSE](dist/ui/licenses/next-compiled/tar/LICENSE) |
+| terser | not declared in bundled package metadata | BSD-2-Clause | [next-compiled/terser/LICENSE](dist/ui/licenses/next-compiled/terser/LICENSE) |
+| text-table | not declared in bundled package metadata | MIT | [next-compiled/text-table/LICENSE](dist/ui/licenses/next-compiled/text-table/LICENSE) |
+| timers-browserify | not declared in bundled package metadata | MIT | [next-compiled/timers-browserify/LICENSE](dist/ui/licenses/next-compiled/timers-browserify/LICENSE) |
+| tty-browserify | not declared in bundled package metadata | MIT | [next-compiled/tty-browserify/LICENSE](dist/ui/licenses/next-compiled/tty-browserify/LICENSE) |
+| ua-parser-js | not declared in bundled package metadata | MIT | [next-compiled/ua-parser-js/LICENSE](dist/ui/licenses/next-compiled/ua-parser-js/LICENSE) |
+| util | not declared in bundled package metadata | MIT | [next-compiled/util/LICENSE](dist/ui/licenses/next-compiled/util/LICENSE) |
+| vm-browserify | not declared in bundled package metadata | MIT | [next-compiled/vm-browserify/LICENSE](dist/ui/licenses/next-compiled/vm-browserify/LICENSE) |
+| watchpack | not declared in bundled package metadata | MIT | [next-compiled/watchpack/LICENSE](dist/ui/licenses/next-compiled/watchpack/LICENSE) |
+| web-vitals | not declared in bundled package metadata | Apache-2.0 | [next-compiled/web-vitals-attribution/LICENSE](dist/ui/licenses/next-compiled/web-vitals-attribution/LICENSE) |
+| web-vitals | not declared in bundled package metadata | Apache-2.0 | [next-compiled/web-vitals/LICENSE](dist/ui/licenses/next-compiled/web-vitals/LICENSE) |
+| webpack-sources | not declared in bundled package metadata | MIT | [next-compiled/webpack-sources1/LICENSE](dist/ui/licenses/next-compiled/webpack-sources1/LICENSE) |
+| webpack-sources | not declared in bundled package metadata | MIT | [next-compiled/webpack-sources3/LICENSE](dist/ui/licenses/next-compiled/webpack-sources3/LICENSE) |
+| webpack | not declared in bundled package metadata | MIT | [next-compiled/webpack/LICENSE](dist/ui/licenses/next-compiled/webpack/LICENSE) |
+| write-file-atomic | not declared in bundled package metadata | ISC | [next-compiled/write-file-atomic/LICENSE](dist/ui/licenses/next-compiled/write-file-atomic/LICENSE) |
+| ws | not declared in bundled package metadata | MIT | [next-compiled/ws/LICENSE](dist/ui/licenses/next-compiled/ws/LICENSE) |
+| zod-validation-error | not declared in bundled package metadata | MIT | [next-compiled/zod-validation-error/LICENSE](dist/ui/licenses/next-compiled/zod-validation-error/LICENSE) |
+| zod | not declared in bundled package metadata | MIT | [next-compiled/zod/LICENSE](dist/ui/licenses/next-compiled/zod/LICENSE) |

@@ -1,5 +1,6 @@
 import { build } from "esbuild";
-import { cp, mkdir, rm, chmod, readFile } from "node:fs/promises";
+import { cp, mkdir, rm, chmod, readFile, realpath } from "node:fs/promises";
+import { dirname } from "node:path";
 await rm("dist", { recursive: true, force: true });
 await mkdir("dist/cli", { recursive: true });
 await build({
@@ -29,15 +30,21 @@ await cp(
   // root node_modules/.pnpm tree and do not emit this additional link index.
   if (error.code !== "ENOENT") throw error;
 });
+// Dereferencing the root Next link relocates it away from pnpm's dependency
+// siblings. Keep those traced runtime dependencies resolvable at the new root.
+await cp(
+  dirname(await realpath(".next/standalone/node_modules/next")),
+  "dist/ui/node_modules",
+  { recursive: true, dereference: true, force: false },
+);
 await cp(".next/standalone/examples", "dist/ui/examples", {
   recursive: true,
 }).catch((e) => {
   if (e.code !== "ENOENT") throw e;
 });
 await cp(".next/static", "dist/ui/.next/static", { recursive: true });
-// Build tracing metadata is not used by the standalone runtime and contains
-// absolute source-tree paths, so do not ship it in the relocatable archive.
-await rm("dist/ui/.next/required-server-files.json", { force: true });
+// Next reads this metadata at runtime. normalize-standalone rewrites its
+// checkout paths together with the rest of the generated server files.
 await cp("public", "dist/ui/public", { recursive: true }).catch((e) => {
   if (e.code !== "ENOENT") throw e;
 });

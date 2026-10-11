@@ -57,6 +57,8 @@
     "dist/ui",
     "examples/local-http",
     "examples/market-data",
+    "!examples/market-data/**/__pycache__/**",
+    "!examples/market-data/**/*.pyc",
     "SETUP.md",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
