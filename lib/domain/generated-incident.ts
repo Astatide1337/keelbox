@@ -120,6 +120,15 @@ export function recipeEvidence(plan: DeploymentPlan) {
         "Return ONLY JSON matching the schema. incident must be a listed allowed ID, target an exact target string above, and grader the exact recovery check identifiers for that incident. Describe symptoms without revealing the repair in title or symptom. Never return commands or YAML.",
     },
   });
+  // The slash-separated target is a structural reference, not one credential.
+  // Check each Kubernetes identifier before preserving the exact validated key.
+  context.targets = context.targets.map((entry, index) => {
+    const target = targets[index].target;
+    const safe = target.split("/").every(
+      (part) => /^[a-z0-9.-]+$/.test(part) && safeText(part) === part,
+    );
+    return { ...entry, target: safe ? target : "[redacted]" };
+  });
   return { context, digest: digest(context) };
 }
 
