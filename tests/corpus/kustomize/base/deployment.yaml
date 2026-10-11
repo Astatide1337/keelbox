@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: app}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: app}}
+  template:
+    metadata: {labels: {app: app}}
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.28-alpine
+          ports: [{name: http, containerPort: 8080}]
+          volumeMounts: [{name: server, mountPath: /etc/nginx/conf.d, readOnly: true}]
+          livenessProbe: {httpGet: {path: /healthz, port: 8080}}
+          readinessProbe:
+            httpGet: {path: /initial, port: 8080}
+      volumes: [{name: server, configMap: {name: app-server}}]

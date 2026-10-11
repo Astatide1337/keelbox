@@ -1,6 +1,51 @@
 import { z } from "zod";
 import { stringify } from "yaml";
 import { parseSources } from "./importer";
+import type { RenderProvenance } from "../server/repository-import";
+const renderProvenanceSchema = z
+  .object({
+    path: z.string().max(500),
+    renderer: z.enum(["yaml", "helm", "kustomize"]),
+    version: z.string().max(300),
+    namespace: z.string().max(253).optional(),
+    release: z.string().max(253).optional(),
+    kubernetesVersion: z.string().max(100).optional(),
+    apiVersions: z.array(z.string().max(200)).max(100).optional(),
+    parameters: z
+      .array(
+        z
+          .object({
+            name: z.string().max(200),
+            sha256: z.string().regex(/^[a-f0-9]{64}$/),
+            forceString: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(100)
+      .optional(),
+    values: z
+      .array(
+        z.object({
+          path: z.string().max(500),
+          sha256: z.string().regex(/^[a-f0-9]{64}$/),
+          repository: z.string().max(1000).optional(),
+          ref: z.string().max(200).optional(),
+        }),
+      )
+      .max(100),
+    lockfiles: z
+      .array(
+        z.object({
+          path: z.string().max(500),
+          sha256: z.string().regex(/^[a-f0-9]{64}$/),
+        }),
+      )
+      .max(100),
+    sourceMappings: z.array(z.string().max(1000)).max(1000),
+    repository: z.string().max(1000).optional(),
+    ref: z.string().max(200).optional(),
+  })
+  .strict();
 import {
   at,
   list,
@@ -50,6 +95,7 @@ export type Snapshot = {
   coverage: Coverage[];
   errors: string[];
   contracts: EndpointContract[];
+  renderProvenance?: RenderProvenance[];
 };
 export type Evidence =
   | {
@@ -75,6 +121,7 @@ export type Evidence =
       rule: string;
     };
 const snapshotSchema = z.object({
+  renderProvenance: z.array(renderProvenanceSchema).max(100).optional(),
   format: z.literal("playground-snapshot-v2"),
   id: z.string().max(200),
   label: z.string().max(200),

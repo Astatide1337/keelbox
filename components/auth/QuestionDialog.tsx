@@ -1,4 +1,5 @@
 "use client";
+import type { LearningContext } from "@/lib/practice/live-learning";
 import { useState, useEffect, useRef } from "react";
 import { useAccount } from "./AccountProvider";
 import {
@@ -30,6 +31,7 @@ export function QuestionDialog({
   onOpenChange,
   scope,
   evidenceKey,
+  retentionKey,
   title,
   disabledReason,
   prepare,
@@ -38,7 +40,9 @@ export function QuestionDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   evidenceKey: string;
+  retentionKey?: string;
   scope: {
+    learning?: LearningContext;
     resourceId?: string;
     relationshipId?: string;
     labId?: string;
@@ -56,17 +60,36 @@ export function QuestionDialog({
   const questionKey =
     (account.status?.profile?.key ?? "development") +
     ":" +
+    (retentionKey ?? evidenceKey) +
+    ":" +
     JSON.stringify({
       resourceId: scope.resourceId,
       relationshipId: scope.relationshipId,
       exerciseId: scope.exerciseId,
       labId: scope.labId,
+      labGeneration: scope.labGeneration,
     });
   const [questions, setQuestions] = useState<Record<string, string>>({});
+  const [restoredQuestion, setRestoredQuestion] = useState<{
+    key: string;
+    value: string;
+  } | null>(null);
+  useEffect(() => {
+    let value = "";
+    try {
+      value = localStorage.getItem("waypoint:question:v1:" + questionKey) ?? "";
+    } catch {}
+    setRestoredQuestion({ key: questionKey, value: value.slice(0, 2000) });
+  }, [questionKey]);
   const question =
-    questions[questionKey] ?? retainedQuestions.get(questionKey) ?? "";
+    questions[questionKey] ??
+    retainedQuestions.get(questionKey) ??
+    (restoredQuestion?.key === questionKey ? restoredQuestion.value : "");
   function setQuestion(value: string) {
     retainedQuestions.set(questionKey, value);
+    try {
+      localStorage.setItem("waypoint:question:v1:" + questionKey, value);
+    } catch {}
     if (retainedQuestions.size > 100)
       retainedQuestions.delete(retainedQuestions.keys().next().value!);
     setQuestions((previous) => ({ ...previous, [questionKey]: value }));
@@ -201,7 +224,7 @@ export function QuestionDialog({
             <p className="text-sm">
               {account.status?.enabled
                 ? "Connect an eligible ChatGPT plan to ask questions."
-                : "AI is disabled in no-login development mode."}
+                : "Sign in with ChatGPT to ask questions."}
             </p>
             <Button
               variant="outline"

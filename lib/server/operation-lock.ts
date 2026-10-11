@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { lstat, readFile, writeFile, chmod } from "node:fs/promises";
 export type OperationLock = { close: () => Promise<void> };
+export class OperationLockBusy extends Error {}
 export async function acquireOperationLock(
   path: string,
 ): Promise<OperationLock> {
@@ -23,6 +24,8 @@ export async function acquireOperationLock(
       [
         "--exclusive",
         "--nonblock",
+        "--conflict-exit-code",
+        "75",
         path,
         "sh",
         "-c",
@@ -37,13 +40,17 @@ export async function acquireOperationLock(
       detail = (detail + data.toString()).slice(-1000);
     });
     child.on("error", reject);
-    child.on("exit", () => {
+    child.on("exit", (code) => {
       if (!ready)
         reject(
-          Error(
-            "Another runtime owns the operation lock, or flock is unavailable. " +
-              detail,
-          ),
+          code === 75
+            ? new OperationLockBusy(
+                "Another runtime owns the operation lock. Wait for its operation to finish.",
+              )
+            : Error(
+                "Unable to acquire the operation lock. Check flock and file access. " +
+                  detail,
+              ),
         );
     });
     child.stdout.on("data", async (data) => {
@@ -63,7 +70,7 @@ export async function acquireOperationLock(
           if (pid > 0) {
             try {
               process.kill(pid, 0);
-              throw Error(
+              throw new OperationLockBusy(
                 "Another runtime owns the operation lock (legacy owner).",
               );
             } catch (e) {

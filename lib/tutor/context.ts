@@ -5,22 +5,64 @@ import { analyze } from "../domain/analyzer";
 import { at, list, object, text } from "../domain/types";
 import type { Exercise } from "../practice/types";
 import { incidents } from "../practice/scenarios/catalog";
-export function safeText(value: unknown): string | undefined {
+const sensitiveKeyPattern =
+  /(?:^|[_.\-/])(?:password|passwd|token|secret|credentials?|api[_-]?key|private[_-]?key|authorization)(?:$|[_.\-/])/i;
+function sensitiveKey(value: string) {
+  return sensitiveKeyPattern.test(value.replace(/([a-z0-9])([A-Z])/g, "$1_$2"));
+}
+/** Redact the complete sensitive assignment, never its key alone. */
+export function safeText(value: unknown, maxLength = 2000): string | undefined {
   if (typeof value !== "string") return undefined;
   if (
-    value.length > 200 ||
-    /bearer\s|password|secret|token|private.?key|BEGIN .*KEY|[A-Za-z0-9_+/=-]{40,}/i.test(
+    value.length > maxLength ||
+    /bearer\s|BEGIN .*KEY|[A-Za-z0-9_+/=-]{40,}/i.test(value) ||
+    /[a-z][a-z0-9+.-]*:\/\/[^\s/]*@/i.test(value) ||
+    /(?:password|passwd|token|secret|credentials?|api[_-]?key|private[_-]?key|authorization)\s*[:=]\s*\S+/i.test(
       value,
     )
   )
     return "[redacted]";
   return value;
 }
+/** Last shared serialization boundary: identifiers, references and error metadata too. */
+function safeResourceReference(value: unknown) {
+  if (typeof value !== "string") return sanitizeTutorValue(value);
+  const parts = value.split("/");
+  // Resource keys are composed structural facts, not one long credential string.
+  // Every component still passes the same sensitive-content checks.
+  if (
+    parts.length === 4 &&
+    parts.every(
+      (part) => /^[a-zA-Z0-9_.-]+$/.test(part) && safeText(part) === part,
+    )
+  )
+    return value;
+  return safeText(value);
+}
+export function sanitizeTutorValue<T>(value: T): T {
+  if (typeof value === "string") return safeText(value) as T;
+  if (Array.isArray(value)) return value.map(sanitizeTutorValue) as T;
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        safeText(key) ?? "unknown",
+        sensitiveKey(key)
+          ? "[redacted]"
+          : ["resourceId", "from", "to"].includes(key)
+            ? safeResourceReference(item)
+            : sanitizeTutorValue(item),
+      ]),
+    ) as T;
+  return value;
+}
 function map(value: unknown) {
   return Object.fromEntries(
     Object.entries(object(value))
       .slice(0, 20)
-      .map(([k, v]) => [safeText(k) ?? "unknown", safeText(v)]),
+      .map(([key, value]) => [
+        safeText(key) ?? "unknown",
+        sensitiveKey(key) ? "[redacted]" : safeText(value),
+      ]),
   );
 }
 function numeric(value: unknown) {
@@ -80,7 +122,46 @@ export function tutorContext(
         }
     }
   const resources = keys.size ? all.filter((r) => keys.has(r.id)) : all;
-  const evidence = resources.slice(0, 30).map((r, i) => {
+  // Reserve the user's scope before neighbors; API list order is not relevance.
+  const reserved = [selected?.id, relationship?.from, relationship?.to].filter(
+    Boolean,
+  );
+  const essential = resources.filter(
+    (r) =>
+      r.kind === "EndpointSlice" &&
+      selected?.kind === "Service" &&
+      r.namespace === selected.namespace &&
+      at(r.raw, "metadata", "labels", "kubernetes.io/service-name") ===
+        selected.name,
+  );
+  const endpointUids = new Set(
+    essential.flatMap((r) =>
+      list(at(r.raw, "endpoints")).map((e) => at(e, "targetRef", "uid")),
+    ),
+  );
+  const priority = (id: string) =>
+    reserved.includes(id)
+      ? 0
+      : essential.some((r) => r.id === id)
+        ? 1
+        : endpointUids.has(
+              at(all.find((r) => r.id === id)?.raw, "metadata", "uid"),
+            )
+          ? 2
+          : 3;
+  const scopedResources = [
+    ...new Map(
+      [
+        ...resources,
+        ...essential,
+        ...all.filter((r) => endpointUids.has(at(r.raw, "metadata", "uid"))),
+      ].map((r) => [r.id, r]),
+    ).values(),
+  ];
+  const ordered = [...scopedResources].sort(
+    (a, b) => priority(a.id) - priority(b.id) || a.id.localeCompare(b.id),
+  );
+  const evidence = ordered.slice(0, 30).map((r, i) => {
     const raw =
       exercise?.resources.find(
         (v) =>
@@ -109,10 +190,16 @@ export function tutorContext(
             type: safeText(c.type),
             status: safeText(c.status),
             lastTransitionTime: safeText(c.lastTransitionTime),
+            reason: safeText(c.reason),
           })),
           containers: list(at(raw, "status", "containerStatuses")).map((c) => ({
             name: safeText(c.name),
             ready: typeof c.ready === "boolean" ? c.ready : "unknown",
+            waitingReason: safeText(at(c, "state", "waiting", "reason")),
+            terminationReason: safeText(at(c, "state", "terminated", "reason")),
+            previousTerminationReason: safeText(
+              at(c, "lastState", "terminated", "reason"),
+            ),
             restartCount:
               typeof c.restartCount === "number" ? c.restartCount : "unknown",
           })),
@@ -127,7 +214,9 @@ export function tutorContext(
       namespace: safeText(r.namespace),
       configuration: {
         provenance: project.files.some((f) => f.id === r.source.fileId)
-          ? "declared in authored manifest"
+          ? project.renderProvenance?.some((p) => p.renderer !== "yaml")
+            ? "declared in rendered manifest"
+            : "declared in authored manifest"
           : exercise
             ? "synthetic practice resource"
             : "captured resource configuration; no authored manifest",
@@ -150,6 +239,45 @@ export function tutorContext(
             uid: safeText(o.uid),
           })),
         replicas: numeric(at(r.raw, "spec", "replicas")),
+        uid: safeText(at(r.raw, "metadata", "uid")),
+        servicePorts:
+          r.kind === "Service"
+            ? list(at(r.raw, "spec", "ports")).map((p) => ({
+                name: safeText(p.name),
+                port: numeric(p.port),
+                targetPort:
+                  typeof p.targetPort === "number"
+                    ? p.targetPort
+                    : safeText(p.targetPort),
+                protocol: safeText(p.protocol) ?? "TCP",
+              }))
+            : undefined,
+        endpoints:
+          r.kind === "EndpointSlice"
+            ? list(at(r.raw, "endpoints"))
+                .slice(0, 30)
+                .map((e) => ({
+                  targetUid: safeText(at(e, "targetRef", "uid")),
+                  targetKind: safeText(at(e, "targetRef", "kind")),
+                  targetName: safeText(at(e, "targetRef", "name")),
+                  ready:
+                    typeof at(e, "conditions", "ready") === "boolean"
+                      ? at(e, "conditions", "ready")
+                      : "unknown",
+                  serving:
+                    typeof at(e, "conditions", "serving") === "boolean"
+                      ? at(e, "conditions", "serving")
+                      : "unknown",
+                  terminating:
+                    typeof at(e, "conditions", "terminating") === "boolean"
+                      ? at(e, "conditions", "terminating")
+                      : "unknown",
+                }))
+            : undefined,
+        omittedEndpoints:
+          r.kind === "EndpointSlice"
+            ? Math.max(0, list(at(r.raw, "endpoints")).length - 30)
+            : undefined,
         containers: containers.map((c) => ({
           name: safeText(c.name),
           ports: list(c.ports).map((p) => ({
@@ -181,7 +309,7 @@ export function tutorContext(
       },
     };
   });
-  const result = {
+  const result = sanitizeTutorValue({
     project: {
       label: safeText(project.label),
       origin: project.origin,
@@ -189,7 +317,15 @@ export function tutorContext(
       live: false,
     },
     evidence,
-    omittedResources: Math.max(0, resources.length - 30),
+    omittedResources: Math.max(0, scopedResources.length - 30),
+    limits: {
+      resources: 30,
+      relationships: 60,
+      mapEntries: 20,
+      endpointsPerSlice: 30,
+      order:
+        "selected resource and edge, EndpointSlices, backend Pods, deterministic neighbors",
+    },
     relationships: analysis.relationships
       .filter(
         (r) =>
@@ -243,7 +379,7 @@ export function tutorContext(
       "raw logs",
       "raw event messages",
     ],
-  };
+  });
   const serialized = JSON.stringify(result);
   if (serialized.length > 40000)
     throw Error("Evidence is too large. Select a narrower resource scope.");

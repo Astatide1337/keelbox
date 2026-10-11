@@ -6,7 +6,8 @@ import { authorized, boundedJson, denied } from "@/lib/server/security";
 import { initializeAuth, inference } from "@/lib/server/oauth";
 import { requirePrincipal, assertPrincipal } from "@/lib/server/auth/session";
 import { ownedStores } from "@/lib/server/auth/stores";
-import { tutorContext } from "@/lib/tutor/context";
+import { tutorContext, safeText } from "@/lib/tutor/context";
+import { learningContextSchema } from "@/lib/practice/live-learning";
 const inputSchema = z
   .object({
     kind: z.enum(["preview", "ask"]),
@@ -19,6 +20,7 @@ const inputSchema = z
     labId: z.string().uuid().optional(),
     labGeneration: z.number().int().positive().optional(),
     labRevision: z.number().int().nonnegative().optional(),
+    learning: learningContextSchema.optional(),
     exerciseId: z.string().uuid().optional(),
     exerciseRevision: z.number().int().min(0).optional(),
     digest: z
@@ -55,7 +57,7 @@ export async function POST(request: Request) {
     await initializeAuth();
     const principal = requirePrincipal(request),
       stores = ownedStores(principal);
-    const input = inputSchema.parse(await boundedJson(request, 5000));
+    const input = inputSchema.parse(await boundedJson(request, 10000));
     async function load() {
       if (input.labId) {
         const runtime = minikubeRuntime(join(stores.root, "runtime"));
@@ -99,6 +101,8 @@ export async function POST(request: Request) {
       input.labGeneration,
       input.labRevision,
       input.resourceId,
+      input.relationshipId,
+      input.learning,
       input.question,
     ]);
     for (const [key, value] of livePreviews)
@@ -113,7 +117,7 @@ export async function POST(request: Request) {
           preview: currentEvidence as ReturnType<typeof liveTutorContext>,
         });
       }
-      return Response.json({ ...currentEvidence, question: input.question });
+      return Response.json({ ...currentEvidence, question: safeText(input.question) });
     }
     const retained = input.labId ? livePreviews.get(previewKey) : undefined;
     if (input.labId && (!retained || retained.scope !== liveScope))
@@ -150,7 +154,7 @@ export async function POST(request: Request) {
     const answer = await inference(
       principal,
       input.model,
-      { ...preview.context, question: input.question },
+      { ...preview.context, question: safeText(input.question) },
       request.signal,
     );
     assertPrincipal(principal);
@@ -172,7 +176,7 @@ export async function POST(request: Request) {
       digest: preview.digest,
     });
   } catch (e) {
-    return Response.json({ error: (e as Error).message }, { status: 400 });
+    return Response.json({ error: safeText((e as Error).message) }, { status: 400 });
   } finally {
     if (pendingKey) state.pending.delete(pendingKey);
   }

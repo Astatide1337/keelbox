@@ -4,6 +4,7 @@ import { authorized, boundedJson, denied } from "@/lib/server/security";
 import { requirePrincipal } from "@/lib/server/auth/session";
 import { ownedStores } from "@/lib/server/auth/stores";
 import { minikubeRuntime, LabConflict } from "@/lib/server/minikube-runtime";
+import { OperationLockBusy } from "@/lib/server/operation-lock";
 import { importSnapshot } from "@/lib/domain/snapshot";
 import { join } from "node:path";
 const operation = z.discriminatedUnion("kind", [
@@ -13,18 +14,36 @@ const operation = z.discriminatedUnion("kind", [
     planHash: z.string().regex(/^[a-f0-9]{64}$/),
   }),
   z.object({
-    kind: z.enum(["incident", "apply", "check", "reset", "recover", "cleanup"]),
+    kind: z.enum([
+      "incident",
+      "apply",
+      "check",
+      "reset",
+      "recover",
+      "cleanup",
+      "run-cronjob",
+    ]),
     operationId: z.string().uuid(),
     sessionId: z.string().uuid(),
     generation: z.number().int().positive(),
     revision: z.number().int().nonnegative(),
-    source: z.string().max(200000).optional(),
+    source: z
+      .string()
+      .max(2_000_000)
+      .refine(
+        (value) => new TextEncoder().encode(value).length <= 2_000_000,
+        "Repair source exceeds 2 MB.",
+      )
+      .optional(),
     incident: z.enum(["readiness", "liveness"]).optional(),
-    target:z.string().max(800).optional(),
-    proposalId:z.string().uuid().optional(),
+    target: z.string().max(800).optional(),
+    proposalId: z.string().uuid().optional(),
   }),
   z.object({
     kind: z.enum(["logs", "closeLogs"]),
+    sessionId: z.string().uuid(),
+    generation: z.number().int().positive(),
+    revision: z.number().int().nonnegative(),
     uid: z.string().uuid(),
     container: z
       .string()
@@ -44,8 +63,14 @@ export async function GET(request: Request) {
   if (!authorized(request)) return denied();
   try {
     await initializeAuth();
-    const { runtime } = service(request);
+    const { runtime, guard } = service(request);
     await runtime.load();
+    try {
+      guard();
+    } catch (e) {
+      runtime.close();
+      throw e;
+    }
     return Response.json(runtime.view(), {
       headers: { "Cache-Control": "no-store" },
     });
@@ -57,7 +82,7 @@ export async function POST(request: Request) {
   if (!authorized(request, true)) return denied();
   try {
     await initializeAuth();
-    const op = operation.parse(await boundedJson(request)),
+    const op = operation.parse(await boundedJson(request, 4_100_000)),
       { runtime, guard } = service(request);
     let data;
     if (op.kind === "plan")
@@ -66,14 +91,30 @@ export async function POST(request: Request) {
       data = await runtime.create(op.planHash, guard);
     else if (op.kind === "logs" || op.kind === "closeLogs")
       data = {
-        logs: await runtime.logs(op.uid, op.container, op.kind === "closeLogs"),
+        logs: await runtime.logs(
+          op.uid,
+          op.container,
+          op.kind === "closeLogs",
+          op,
+        ),
       };
     else data = await runtime.operate(op, guard);
+    try {
+      guard();
+    } catch (e) {
+      runtime.close();
+      throw e;
+    }
     return Response.json(data, { status: 202 });
   } catch (e) {
     return Response.json(
       { error: (e as Error).message },
-      { status: e instanceof LabConflict ? 409 : 400 },
+      {
+        status:
+          e instanceof LabConflict || e instanceof OperationLockBusy
+            ? 409
+            : 400,
+      },
     );
   }
 }

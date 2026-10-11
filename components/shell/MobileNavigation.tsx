@@ -21,6 +21,7 @@ export function MobileNavigation({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="navigation-sheet"
+        style={{ translate: "none", transform: "none" }}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           triggerRef.current?.focus();

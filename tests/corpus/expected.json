@@ -1,0 +1,39 @@
+[
+  {
+    "file": "healthy.yaml",
+    "deployable": "supported",
+    "exercise": "supported"
+  },
+  {
+    "file": "network-policy.yaml",
+    "deployable": "blocked",
+    "reason": "enforce policy"
+  },
+  { "file": "hpa.yaml", "deployable": "blocked", "reason": "dynamic replica" },
+  { "file": "projected-optional.yaml", "deployable": "supported" },
+  {
+    "file": "projected-missing-key.yaml",
+    "deployable": "blocked",
+    "reason": "settings/missing"
+  },
+  { "file": "namespace-labels.yaml", "deployable": "supported" },
+  { "file": "cron-job.yaml", "deployable": "supported" },
+  {
+    "file": "reserved.yaml",
+    "deployable": "blocked",
+    "reason": "reserved Waypoint"
+  },
+  {
+    "file": "custom-resource.yaml",
+    "deployable": "blocked",
+    "reason": "unsupported"
+  },
+  { "file": "helm-hook.yaml", "deployable": "blocked", "reason": "Helm hook" },
+  { "file": "pvc.yaml", "deployable": "supported" },
+  {
+    "file": "pvc-cloud.yaml",
+    "deployable": "blocked",
+    "reason": "StorageClass aws-efs"
+  },
+  { "file": "gpu.yaml", "deployable": "blocked", "reason": "extended resource" }
+]

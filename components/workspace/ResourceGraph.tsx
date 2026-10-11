@@ -27,6 +27,7 @@ type ResourceData = {
   label: string;
   kind: string;
   apiVersion: string;
+  namespace: string;
   detail: string;
   tone: string;
   onSelect: () => void;
@@ -49,6 +50,7 @@ const ResourceNode = memo(function ResourceNode({
           <span className="node-kind">{data.kind}</span>
           <strong>{data.label}</strong>
           <span className="node-version">{data.apiVersion}</span>
+          <span className="node-version">{data.namespace}</span>
           <span className={`node-status ${data.tone}`}>
             <span className="status-dot" />
             {data.detail}
@@ -68,6 +70,7 @@ export function ResourceGraph({
   onRelationship,
   observation,
   stale,
+  staleReason,
   endpointCoverage,
   provenance,
   initialPositions,
@@ -82,6 +85,7 @@ export function ResourceGraph({
   onRelationship: (id: string) => void;
   observation: Observation | null;
   stale: boolean;
+  staleReason?: string;
   endpointCoverage?: (ns: string | null) => boolean;
   provenance?: string;
   initialPositions?: Record<string, { x: number; y: number }>;
@@ -134,6 +138,7 @@ export function ResourceGraph({
           label: r.name,
           kind: r.kind,
           apiVersion: r.apiVersion,
+          namespace: r.namespace ?? "Cluster scoped",
           detail: p.label,
           tone: p.tone,
           onSelect: () => selectRef.current(r.id),
@@ -190,7 +195,7 @@ export function ResourceGraph({
     <div className={`graph-canvas ${stale ? "stale" : ""}`}>
       <div className="graph-caption">
         {stale
-          ? "Previous graph · source invalid"
+          ? (staleReason ?? "Previous graph · source invalid")
           : observation
             ? (provenance ?? "Captured state + inferred relationships")
             : "Relationships inferred from manifests"}

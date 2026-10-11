@@ -10,7 +10,9 @@
     "test": "tsx --test tests/domain/*.test.ts tests/server/*.test.ts",
     "test:e2e": "playwright test",
     "format": "prettier --write app components lib cli tests *.json *.ts *.mjs",
-    "package:build": "node scripts/clean-package.mjs && next build && node scripts/package.mjs"
+    "package:build": "node scripts/clean-package.mjs && next build && node scripts/package.mjs",
+    "prepack": "npm run package:build",
+    "package:verify": "node scripts/verify-package.mjs"
   },
   "devDependencies": {
     "@codemirror/lang-yaml": "6.1.3",
@@ -54,6 +56,14 @@
     "dist/cli",
     "dist/ui",
     "examples/local-http",
-    "SETUP.md"
-  ]
+    "SETUP.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "description": "Local Kubernetes inspection and evidence-led practice using owned Minikube labs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Astatide1337/waypoint.git"
+  }
 }

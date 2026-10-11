@@ -1,3 +1,7 @@
+import {
+  helmBaseEnvironment,
+  isolatedHelmCredentials,
+} from "./helm-environment";
 import { join } from "node:path";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { at, list, object, text } from "../domain/types";
@@ -18,6 +22,16 @@ export async function prepareVault(
   const values = join(temporary, "values.yaml");
   let stage = "installing the official Vault chart";
   try {
+    const helmEnv = {
+      ...helmBaseEnvironment(environment(target)),
+      HELM_PLUGINS: join(temporary, "plugins"),
+      HELM_CONFIG_HOME: join(temporary, "config"),
+      HELM_CACHE_HOME: join(temporary, "cache"),
+      HELM_DATA_HOME: join(temporary, "data"),
+      ...(await isolatedHelmCredentials(temporary)),
+      HELM_REPOSITORY_CONFIG: join(temporary, "config", "repositories.yaml"),
+      HELM_REPOSITORY_CACHE: join(temporary, "cache", "repository"),
+    };
     await writeFile(
       values,
       stringify({
@@ -59,13 +73,7 @@ export async function prepareVault(
             "json",
           ],
           {
-            env: {
-              ...environment(target),
-              HELM_PLUGINS: join(temporary, "plugins"),
-              HELM_CONFIG_HOME: join(temporary, "config"),
-              HELM_CACHE_HOME: join(temporary, "cache"),
-              HELM_DATA_HOME: join(temporary, "data"),
-            },
+            env: helmEnv,
           },
         ),
       );
@@ -79,10 +87,11 @@ export async function prepareVault(
       /* A fresh owned cluster has no Vault release yet. */
     }
     if (!installed) {
-      const version = await run(process.env.WAYPOINT_HELM_BIN ?? "helm", [
-        "version",
-        "--short",
-      ]);
+      const version = await run(
+        process.env.WAYPOINT_HELM_BIN ?? "helm",
+        ["version", "--short"],
+        { env: helmEnv },
+      );
       const clientApply = /^v4\./.test(version.trim())
         ? ["--server-side=false"]
         : [];
@@ -112,13 +121,7 @@ export async function prepareVault(
           "180s",
         ],
         {
-          env: {
-            ...environment(target),
-            HELM_PLUGINS: join(temporary, "plugins"),
-            HELM_CONFIG_HOME: join(temporary, "config"),
-            HELM_CACHE_HOME: join(temporary, "cache"),
-            HELM_DATA_HOME: join(temporary, "data"),
-          },
+          env: helmEnv,
           timeout: 200000,
         },
       );

@@ -1,0 +1,39 @@
+✔ analysis and planning share init, projected, optional and sanitized Secret key semantics (19.540036ms)
+✔ deployment plan preserves originals, rewrites owned namespaces, exposes contracts and rejects replica/probe shortcuts (89.790715ms)
+✔ captured, privileged, secret and unsupported applications fail compatibility without substitution (23.294625ms)
+✔ dropping Linux capabilities is allowed; adding host capabilities is blocked (29.520717ms)
+✔ application image names and commands are preserved without a fixture whitelist (11.200999ms)
+✔ probe repairs are scoped to the selected Deployment and container (29.060889ms)
+✔ local Docker mapping is explicit, immutable, and never pulls from the registry (9.253705ms)
+✔ a metrics Service cannot hide the application Service practice contract (8.274496ms)
+✔ Helm subprocesses cannot inherit target overrides, SQL storage, repository or registry credentials (1.121193ms)
+✔ disposable Helm and Docker stores are private and suppress native helper detection without credentials (11.316144ms)
+✔ checked-in manifest corpus has explicit supported and refused capability outcomes (129.635536ms)
+✔ namespace labels, account subjects and boundary-delimited Service DNS stay semantically aligned (11.534943ms)
+✔ dependency walker covers regular/init env/envFrom and direct/projected configuration item keys (1.118618ms)
+✔ typed SecretList inherits item identity, removes values and retains only safe key metadata (1.943579ms)
+✔ plain YAML/JSON monorepos demand an explicit app choice and expose skipped-file diagnostics (11.321544ms)
+✔ HTTP contracts cover every matching TCP Service and refuse SCTP instead of treating it as HTTP (9.3697ms)
+✔ CronJob schedule and PVC preservation are requirements, not claimed completed execution or data erasure (5.447319ms)
+✔ Argo mutable revisions and credential-bearing URLs are refused before fetching (17.283334ms)
+✔ real local Kustomize overlay renders components, generator hashes and replacements without modifying source (136.519938ms)
+✔ real installed Helm renders ordered values, release namespace and capabilities with source provenance (59.241509ms)
+✔ pinned upstream public OCI dependency renders without ambient Helm configuration or source changes (580.871966ms)
+✔ Kustomize provenance retains bounded actual versions rather than kubectl build metadata (1.771507ms)
+✔ recursive repository discovery finds application entries and ignores machine state (50.201303ms)
+✔ Secret values and last-applied payloads are stripped, including nested Lists (3.193571ms)
+✔ explicit local test Secrets unblock references without entering deployment source or API summaries (65.406817ms)
+✔ multiple namespaces remain separate; a same-label Service in another namespace is not a probe contract (13.916688ms)
+✔ AI incident graders require deterministic recovery criteria and an eligible manifest target (16.171749ms)
+✔ nested Kustomize bases cannot read outside the selected repository (5.586799ms)
+✔ unchanged repair with identical resource names in separate namespaces remains valid (13.886983ms)
+✔ typed SecretList is scrubbed and snapshot validation rejects unsanitized nested values (5.974323ms)
+✔ last-applied metadata on ordinary resources cannot export embedded credentials (0.944814ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 920.085036

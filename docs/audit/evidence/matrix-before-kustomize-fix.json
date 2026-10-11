@@ -1,0 +1,290 @@
+{
+  "node": "v22.23.3",
+  "executable": "/tmp/waypoint-audit-accept22/node_modules/.bin/waypoint",
+  "installedArtifact": true,
+  "auth": "real account",
+  "images": [
+    "nginx:1.28-alpine",
+    "busybox:1.37"
+  ],
+  "imageBuilds": false,
+  "checks": [
+    {
+      "name": "reserved-marker API create",
+      "status": "PASS",
+      "detail": "Rejected authored ownership collision before cluster creation."
+    },
+    {
+      "name": "plain-cronjob-pvc: import/plan",
+      "status": "PASS",
+      "detail": {
+        "contracts": 1,
+        "transformedNamespaces": [
+          "waypoint-lab-1c3c79ee9252"
+        ]
+      }
+    },
+    {
+      "name": "plain-cronjob-pvc: healthy baseline",
+      "status": "PASS",
+      "detail": {
+        "profile": "waypoint-df24b3eb-9cd",
+        "checks": [
+          {
+            "name": "Service/matrix-web configuration",
+            "passed": true,
+            "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "matrix-web replicas",
+            "passed": true,
+            "detail": "Intended nonzero replicas must be ready and current."
+          },
+          {
+            "name": "matrix-web template",
+            "passed": true,
+            "detail": "Container configuration changed outside the repair contract."
+          },
+          {
+            "name": "PersistentVolumeClaim/matrix-data baseline",
+            "passed": true,
+            "detail": "Reviewed resource configuration and runtime readiness/binding/completion are required."
+          },
+          {
+            "name": "CronJob/matrix-once configuration",
+            "passed": true,
+            "detail": "CronJob schedule/template must match the reviewed baseline."
+          },
+          {
+            "name": "CronJob/matrix-once awaiting execution",
+            "passed": true,
+            "detail": "Configuration is valid; awaiting a scheduled run. Execution has not been verified. Use the reviewed one-run action to test it now."
+          },
+          {
+            "name": "HTTP verification scope",
+            "passed": true,
+            "detail": "Checking all 1 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+          },
+          {
+            "name": "waypoint-lab-1c3c79ee9252/matrix-web ready Service backends",
+            "passed": true,
+            "detail": "Ready EndpointSlices must target every intended ready replica."
+          },
+          {
+            "name": "in-cluster Service HTTP waypoint-lab-1c3c79ee9252/matrix-web:80/",
+            "passed": true,
+            "detail": "HTTP request through Service waypoint-lab-1c3c79ee9252/matrix-web:80/ exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+          }
+        ]
+      }
+    },
+    {
+      "name": "plain-cronjob-pvc: explicit initial log errors",
+      "status": "PASS",
+      "detail": "Unknown container and absent Pod UID rejected explicitly; no fake log output."
+    },
+    {
+      "name": "plain-cronjob-pvc: actual init-container logs",
+      "status": "PASS",
+      "detail": "Selected setup container output retained in its UID-scoped bounded buffer; subscription closed."
+    },
+    {
+      "name": "owned container disconnect",
+      "status": "PASS",
+      "detail": {
+        "lastObservation": "2026-10-11T04:29:20.449Z",
+        "state": "stale",
+        "reasons": [
+          "Service: aborted",
+          "StatefulSet: aborted",
+          "Job: aborted",
+          "CronJob: aborted",
+          "Ingress: aborted",
+          "NetworkPolicy: aborted"
+        ],
+        "generationUnchanged": true,
+        "revisionUnchanged": true
+      }
+    },
+    {
+      "name": "owned container reconnect",
+      "status": "PASS",
+      "detail": {
+        "state": "current",
+        "lastObservation": "2026-10-11T04:29:54.350Z",
+        "identityReverified": true
+      }
+    },
+    {
+      "name": "overlapping reset/apply",
+      "status": "PASS",
+      "detail": "Apply returned409 during reset; one healthy reset completed with one generation/revision increment."
+    },
+    {
+      "name": "CronJob reviewed one-run",
+      "status": "PASS",
+      "detail": {
+        "jobUid": "12627a01-fb13-46e1-af63-16baa0cd80ec",
+        "completed": true,
+        "actualPVCMarker": true
+      }
+    },
+    {
+      "name": "reset PVC and Job preservation",
+      "status": "PASS",
+      "detail": {
+        "pvcUidUnchanged": true,
+        "sentinelRetained": true,
+        "completedJobUidUnchanged": true
+      }
+    },
+    {
+      "name": "installed UI restart interruption",
+      "status": "PASS",
+      "detail": {
+        "interruptedOperation": "reset",
+        "recovery": "real healthy baseline and Service HTTP",
+        "pvcUidPreserved": true,
+        "sentinelPreserved": true,
+        "origin": "http://127.0.0.1:3124",
+        "startupCapabilitiesExported": false
+      }
+    },
+    {
+      "name": "plain-cronjob-pvc: invalid and constrained repair rejection",
+      "status": "PASS",
+      "detail": "Malformed YAML and scale-to-zero rejected without revision or source changes."
+    },
+    {
+      "name": "plain-cronjob-pvc: immutable original files",
+      "status": "PASS",
+      "detail": "All generated fixture file hashes remain unchanged."
+    },
+    {
+      "name": "plain-cronjob-pvc: cleanup repeated safely",
+      "status": "PASS",
+      "detail": "Owned profile stopped; a new duplicate cleanup request rejected without a second mutation."
+    },
+    {
+      "name": "helm: import/plan",
+      "status": "PASS",
+      "detail": {
+        "contracts": 1,
+        "transformedNamespaces": [
+          "waypoint-lab-776366e447e7"
+        ]
+      }
+    },
+    {
+      "name": "helm: healthy baseline",
+      "status": "PASS",
+      "detail": {
+        "profile": "waypoint-3866efee-ff9",
+        "checks": [
+          {
+            "name": "Service/matrix-helm configuration",
+            "passed": true,
+            "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "matrix-helm replicas",
+            "passed": true,
+            "detail": "Intended nonzero replicas must be ready and current."
+          },
+          {
+            "name": "matrix-helm template",
+            "passed": true,
+            "detail": "Container configuration changed outside the repair contract."
+          },
+          {
+            "name": "HTTP verification scope",
+            "passed": true,
+            "detail": "Checking all 1 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+          },
+          {
+            "name": "waypoint-lab-776366e447e7/matrix-helm ready Service backends",
+            "passed": true,
+            "detail": "Ready EndpointSlices must target every intended ready replica."
+          },
+          {
+            "name": "in-cluster Service HTTP waypoint-lab-776366e447e7/matrix-helm:80/",
+            "passed": true,
+            "detail": "HTTP request through Service waypoint-lab-776366e447e7/matrix-helm:80/ exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+          }
+        ]
+      }
+    },
+    {
+      "name": "helm: explicit initial log errors",
+      "status": "PASS",
+      "detail": "Unknown container and absent Pod UID rejected explicitly; no fake log output."
+    },
+    {
+      "name": "helm: actual init-container logs",
+      "status": "PASS",
+      "detail": "Selected setup container output retained in its UID-scoped bounded buffer; subscription closed."
+    },
+    {
+      "name": "helm: invalid and constrained repair rejection",
+      "status": "PASS",
+      "detail": "Malformed YAML and scale-to-zero rejected without revision or source changes."
+    },
+    {
+      "name": "helm: immutable original files",
+      "status": "PASS",
+      "detail": "All generated fixture file hashes remain unchanged."
+    },
+    {
+      "name": "helm: cleanup repeated safely",
+      "status": "PASS",
+      "detail": "Owned profile stopped; a new duplicate cleanup request rejected without a second mutation."
+    },
+    {
+      "name": "kustomize-overlay",
+      "status": "FAIL",
+      "detail": "Command failed: /tmp/waypoint-audit-accept22/node_modules/.bin/waypoint import /tmp/waypoint-audit-matrix-accept22/fixtures-mC13Wj/kustomize\n[\n  {\n    \"origin\": \"string\",\n    \"code\": \"too_big\",\n    \"maximum\": 300,\n    \"inclusive\": true,\n    \"path\": [\n      \"renderProvenance\",\n      0,\n      \"version\"\n    ],\n    \"message\": \"Too big: expected string to have <=300 characters\"\n  }\n]\n"
+    },
+    {
+      "name": "failed-deployment: import/plan",
+      "status": "PASS",
+      "detail": {
+        "contracts": 1,
+        "transformedNamespaces": [
+          "waypoint-lab-cc6c82ea4910"
+        ]
+      }
+    },
+    {
+      "name": "failed-deployment: actual baseline failure",
+      "status": "PASS",
+      "detail": {
+        "phase": "failed",
+        "noSimulatedSuccess": true,
+        "podUid": "038e44af-9608-4423-8641-9d506d11db7e",
+        "restartCount": 1,
+        "kubeletReasons": [
+          "FailedScheduling",
+          "Scheduled",
+          "Pulling",
+          "Pulled",
+          "Created",
+          "Started",
+          "Unhealthy",
+          "BackOff"
+        ],
+        "selectedContainerLog": true,
+        "boundedBuffer": true,
+        "originalsUnchanged": true
+      }
+    },
+    {
+      "name": "failed-deployment: cleanup repeated safely",
+      "status": "PASS",
+      "detail": "Owned profile stopped; a new duplicate cleanup request rejected without a second mutation."
+    }
+  ],
+  "failures": [
+    "kustomize-overlay"
+  ],
+  "artifactSha256": "65b57742a4630392a72c0c82f6c89bf1034d5722e161590ad29c80a9b26aa26c"
+}

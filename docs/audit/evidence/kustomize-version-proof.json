@@ -1,0 +1,11 @@
+{
+  "installedCli": "/tmp/waypoint-audit-verified22/node_modules/.bin/waypoint",
+  "artifact": "6ad2a568f6bc109525337619f151b851983b5d706858cc1218dda6bf92bce089",
+  "captureTime": "2026-10-11T05:46:13.832Z",
+  "render": [
+    {
+      "renderer": "kustomize",
+      "version": "kubectl v1.37.1; kustomize v5.8.1"
+    }
+  ]
+}

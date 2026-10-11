@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gpu, namespace: demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: gpu}}
+  template:
+    metadata: {labels: {app: gpu}}
+    spec:
+      containers:
+        - name: gpu
+          image: nginx:1.28-alpine
+          resources: {limits: {nvidia.com/gpu: 1}}

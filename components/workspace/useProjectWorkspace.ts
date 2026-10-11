@@ -26,6 +26,57 @@ export function useProjectWorkspace(
     {},
   );
   const state = contexts[workspaceKey] ?? empty;
+  const [revealedFilters, setRevealedFilters] = useState<Pick<
+    WorkspaceContext,
+    "namespace" | "query" | "kind"
+  > | null>(null);
+  const urlReady = useRef(false);
+  useEffect(() => {
+    const restore = () => {
+      const url = new URL(location.href);
+      const context = { ...empty };
+      if (
+        url.searchParams.get("workspace") === workspaceKey ||
+        !url.searchParams.has("workspace")
+      ) {
+        for (const key of [
+          "selected",
+          "namespace",
+          "query",
+          "kind",
+          "tab",
+        ] as const) {
+          const value = url.searchParams.get(key);
+          if (value !== null) context[key] = value;
+        }
+      }
+      setContexts((previous) => ({ ...previous, [workspaceKey]: context }));
+      urlReady.current = true;
+    };
+    restore();
+    window.addEventListener("popstate", restore);
+    return () => {
+      window.removeEventListener("popstate", restore);
+      urlReady.current = false;
+    };
+  }, [workspaceKey]);
+  useEffect(() => {
+    if (!urlReady.current) return;
+    const url = new URL(location.href);
+    url.searchParams.set("workspace", workspaceKey);
+    for (const key of [
+      "selected",
+      "namespace",
+      "query",
+      "kind",
+      "tab",
+    ] as const) {
+      const value = state[key];
+      if (value && value !== empty[key]) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    }
+    history.replaceState(null, "", url);
+  }, [workspaceKey, state]);
   function update<K extends keyof WorkspaceContext>(
     key: K,
     value: WorkspaceContext[K],
@@ -62,14 +113,45 @@ export function useProjectWorkspace(
   );
   return {
     ...state,
-    setSelected: (s: string | null) => update("selected", s),
+    setSelected: (s: string | null) => {
+      if (
+        s &&
+        !visible.some((r) => r.id === s) &&
+        all.some((r) => r.id === s)
+      ) {
+        setRevealedFilters({
+          namespace: state.namespace,
+          query: state.query,
+          kind: state.kind,
+        });
+        setContexts((previous) => ({
+          ...previous,
+          [workspaceKey]: {
+            ...state,
+            selected: s,
+            namespace: "all",
+            query: "",
+            kind: "all",
+          },
+        }));
+      } else update("selected", s);
+    },
+    revealedFilters,
+    restoreFilters: () => {
+      if (revealedFilters)
+        setContexts((previous) => ({
+          ...previous,
+          [workspaceKey]: { ...state, ...revealedFilters },
+        }));
+      setRevealedFilters(null);
+    },
     setNamespace: (s: string) => update("namespace", s),
     setQuery: (s: string) => update("query", s),
     setKind: (s: string) => update("kind", s),
     setTab: (s: string) => update("tab", s),
     all,
     visible,
-    resource: visible.find((r) => r.id === state.selected),
+    resource: all.find((r) => r.id === state.selected),
     diagnostics: parsed.diagnostics,
   };
 }

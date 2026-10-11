@@ -1,0 +1,176 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "elements": [
+    {
+      "tag": "DIV",
+      "slot": "resizable-panel-group",
+      "pane": null,
+      "class": "flex h-full w-full aria-[orientation=vertical]:flex-col lab-panels",
+      "style": "height: 100%; width: 100%; overflow: hidden; display: flex; flex-flow: row; touch-action: pan-y;",
+      "display": "flex",
+      "height": "760px",
+      "minHeight": "480px",
+      "flex": "0 1 auto",
+      "rect": {
+        "x": 16,
+        "y": 427.5,
+        "width": 358,
+        "height": 760,
+        "top": 427.5,
+        "right": 374,
+        "bottom": 1187.5,
+        "left": 16
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": "resizable-panel",
+      "pane": "tree",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 18 1 0px; overflow: visible;",
+      "display": "none",
+      "height": "auto",
+      "minHeight": "0px",
+      "flex": "1 1 100%",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": "resizable-panel",
+      "pane": "graph",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 49 1 0px; overflow: visible;",
+      "display": "flex",
+      "height": "758px",
+      "minHeight": "0px",
+      "flex": "1 1 100%",
+      "rect": {
+        "x": 17,
+        "y": 428.5,
+        "width": 356,
+        "height": 758,
+        "top": 428.5,
+        "right": 373,
+        "bottom": 1186.5,
+        "left": 17
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": null,
+      "pane": null,
+      "class": "graph-canvas ",
+      "style": null,
+      "display": "block",
+      "height": "758px",
+      "minHeight": "420px",
+      "flex": "0 1 auto",
+      "rect": {
+        "x": 17,
+        "y": 428.5,
+        "width": 356,
+        "height": 758,
+        "top": 428.5,
+        "right": 373,
+        "bottom": 1186.5,
+        "left": 17
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": null,
+      "pane": null,
+      "class": "react-flow dark",
+      "style": "width: 100%; height: 100%; overflow: hidden; position: relative; z-index: 0;",
+      "display": "block",
+      "height": "758px",
+      "minHeight": "0px",
+      "flex": "0 1 auto",
+      "rect": {
+        "x": 17,
+        "y": 428.5,
+        "width": 356,
+        "height": 758,
+        "top": 428.5,
+        "right": 373,
+        "bottom": 1186.5,
+        "left": 17
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": null,
+      "pane": null,
+      "class": "react-flow__panel react-flow__controls horizontal bottom left",
+      "style": null,
+      "display": "flex",
+      "height": "34px",
+      "minHeight": "0px",
+      "flex": "0 1 auto",
+      "rect": {
+        "x": 198,
+        "y": 1121.5,
+        "width": 102,
+        "height": 34,
+        "top": 1121.5,
+        "right": 300,
+        "bottom": 1155.5,
+        "left": 198
+      }
+    },
+    {
+      "tag": "BUTTON",
+      "slot": null,
+      "pane": null,
+      "class": "react-flow__controls-button react-flow__controls-fitview",
+      "style": null,
+      "display": "flex",
+      "height": "34px",
+      "minHeight": "auto",
+      "flex": "0 1 auto",
+      "rect": {
+        "x": 266,
+        "y": 1121.5,
+        "width": 34,
+        "height": 34,
+        "top": 1121.5,
+        "right": 300,
+        "bottom": 1155.5,
+        "left": 266
+      }
+    },
+    {
+      "tag": "DIV",
+      "slot": "resizable-panel",
+      "pane": "inspector",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 33 1 0px; overflow: visible;",
+      "display": "none",
+      "height": "auto",
+      "minHeight": "0px",
+      "flex": "1 1 100%",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { safeText } from "../tutor/context";
+import { safeText, sanitizeTutorValue } from "../tutor/context";
 import { z } from "zod";
 import {
   digest,
@@ -64,7 +64,7 @@ export function validateRecipe(
   return recipe;
 }
 export function recipeEvidence(plan: DeploymentPlan) {
-  const context = {
+  const context = sanitizeTutorValue({
     purpose:
       "Design one real probe-failure investigation in an owned local Kubernetes cluster.",
     targets: (plan.contracts ?? (plan.contract ? [plan.contract] : [])).map(
@@ -96,6 +96,6 @@ export function recipeEvidence(plan: DeploymentPlan) {
       output:
         "Return ONLY JSON matching the response schema. incident must be exactly readiness or liveness. target must be one of the target strings above, not an object. grader must contain the exact required check identifiers, not sentences. Start with symptoms; do not reveal the probe path solution in the title or symptom.",
     },
-  };
+  });
   return { context, digest: digest(context) };
 }

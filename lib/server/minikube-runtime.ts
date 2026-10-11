@@ -1,3 +1,12 @@
+import {
+  assertNoReservedResources,
+  assertSafeApplicationSource,
+  checkedHttpContracts,
+  resetPreview,
+  reviewedCronJobRun,
+  cronJobExecution,
+  corroboratedProbeFailure,
+} from "./runtime-invariants";
 import { prepareVault } from "./local-vault";
 import {
   validateRecipe,
@@ -55,6 +64,8 @@ export type LiveLab = {
   source: string;
   incident: "readiness" | "liveness" | null;
   recipe?: IncidentRecipe;
+  incidentInjectedAt?: string;
+  incidentObservedAt?: string;
   operation: string | null;
   error: string | null;
   checks: { name: string; passed: boolean; detail: string }[];
@@ -177,6 +188,35 @@ export class MinikubeRuntime {
         terminal: `kubectl --kubeconfig '${target.kubeconfig.replaceAll("'", "'\\''")}' --context '${target.profile}' -n '${target.namespace}'`,
       },
       plan: this.pending,
+      resetPreview: this.lab.plan ? resetPreview(this.lab.plan) : null,
+      scheduledExecutions: (this.lab.plan?.resources ?? [])
+        .filter((r) => r.kind === "CronJob")
+        .map((r) => ({
+          ...cronJobExecution(
+            this.cache?.view().resources.filter((r) => r.kind === "Job") ?? [],
+            text(
+              at(
+                this.cache
+                  ?.view()
+                  .resources.find(
+                    (o) =>
+                      o.kind === "CronJob" &&
+                      at(o, "metadata", "name") === at(r, "metadata", "name") &&
+                      at(o, "metadata", "namespace") ===
+                        at(r, "metadata", "namespace"),
+                  ),
+                "metadata",
+                "uid",
+              ),
+            ),
+          ),
+          target: `${text(at(r, "metadata", "namespace")) || this.lab!.namespace}/${text(at(r, "metadata", "name"))}`,
+          name: text(at(r, "metadata", "name")),
+          namespace:
+            text(at(r, "metadata", "namespace")) || this.lab!.namespace,
+          effect:
+            "Create one Job from the reviewed CronJob template in the owned lab. It may modify application data; its schedule remains unchanged.",
+        })),
     };
   }
   propose(
@@ -225,6 +265,9 @@ export class MinikubeRuntime {
         );
       if (!this.pending || this.pending.planHash !== planHash)
         throw new LabConflict("Deployment preview changed. Review it again.");
+      assertNoReservedResources(this.pending.resources);
+      assertSafeApplicationSource(this.pending.source);
+      checkedHttpContracts(this.pending);
       if (this.pending.blockers.length)
         throw Error(this.pending.blockers.join("; "));
       const local = await new LocalConfiguration(
@@ -430,8 +473,19 @@ export class MinikubeRuntime {
         );
       if (op.kind === "apply") {
         if (!op.source) throw Error("Source required.");
+        assertSafeApplicationSource(op.source);
         validateLabRepair(lab.plan, op.source);
       }
+      if (
+        op.kind === "run-cronjob" &&
+        !lab.plan.resources.some(
+          (r) =>
+            r.kind === "CronJob" &&
+            `${text(at(r, "metadata", "namespace")) || lab.namespace}/${text(at(r, "metadata", "name"))}` ===
+              op.target,
+        )
+      )
+        throw Error("Choose an imported CronJob in this owned lab.");
       guard();
       lab.operations[op.operationId] = {
         kind: op.kind,
@@ -453,6 +507,9 @@ export class MinikubeRuntime {
           if (!["recover", "cleanup"].includes(op.kind))
             await assertOwned(lab.target);
           if (op.kind === "incident") {
+            // Lifecycle 'ready' records the previous baseline, not perpetual health.
+            // Re-check current state under the operation lock before injecting a fault.
+            await this.healthy();
             lab.plan.contract = (
               lab.plan.contracts ?? [lab.plan.contract!]
             ).find(
@@ -485,11 +542,15 @@ export class MinikubeRuntime {
                 "/waypoint-missing-" + lab.id.slice(0, 8);
             }
             lab.source = values.map((v) => stringify(v)).join("---\n");
+            lab.incidentInjectedAt = new Date().toISOString();
+            lab.incidentObservedAt = undefined;
+            assertSafeApplicationSource(lab.source);
             await kube(lab.target, ["apply", "-f", "-"], lab.source);
             lab.incident = op.incident ?? "readiness";
             lab.revision++;
             lab.phase = "running";
             await this.proveIncident();
+            lab.incidentObservedAt = new Date().toISOString();
           } else if (op.kind === "apply") {
             await kube(lab.target, ["apply", "-f", "-"], op.source);
             lab.source = op.source!;
@@ -497,6 +558,10 @@ export class MinikubeRuntime {
             lab.phase = "running";
           } else if (op.kind === "check") {
             try {
+              if (lab.incident && !lab.incidentObservedAt)
+                throw Error(
+                  "The incident has not been corroborated in this session. Recover or reset before claiming an exercise recovery.",
+                );
               if (!this.cache?.fresh())
                 throw Error(
                   "Observations are stale or unavailable; reconnect before checking.",
@@ -506,10 +571,16 @@ export class MinikubeRuntime {
                 throw Error(
                   "Observations disconnected during checking; outcome unavailable.",
                 );
-              lab.phase = "completed";
+              lab.phase = lab.incident ? "completed" : "ready";
             } catch (e) {
               lab.phase = "running";
               lab.error = (e as Error).message;
+              if (!lab.checks.some((check) => !check.passed))
+                lab.checks.push({
+                  name: "Recovery verification",
+                  passed: false,
+                  detail: lab.error,
+                });
             }
           } else if (op.kind === "recover") {
             this.cache?.stop();
@@ -520,6 +591,8 @@ export class MinikubeRuntime {
             lab.revision++;
             lab.incident = null;
             lab.recipe = undefined;
+            lab.incidentInjectedAt = undefined;
+            lab.incidentObservedAt = undefined;
             this.proposals.clear();
             await this.startCache();
             await this.healthy();
@@ -532,10 +605,58 @@ export class MinikubeRuntime {
             lab.revision++;
             lab.incident = null;
             lab.recipe = undefined;
+            lab.incidentInjectedAt = undefined;
+            lab.incidentObservedAt = undefined;
             this.proposals.clear();
             await this.startCache();
             await this.healthy();
             lab.phase = "ready";
+          } else if (op.kind === "run-cronjob") {
+            const [namespace, name] = op.target!.split("/");
+            const actual = object(
+              JSON.parse(
+                await kube(lab.target, [
+                  "-n",
+                  namespace,
+                  "get",
+                  "cronjob",
+                  name,
+                  "-o",
+                  "json",
+                ]),
+              ),
+            );
+            const expected = lab.plan.resources.find(
+              (r) =>
+                r.kind === "CronJob" &&
+                at(r, "metadata", "namespace") === namespace &&
+                at(r, "metadata", "name") === name,
+            )!;
+            if (!containsDeclared(actual.spec, expected.spec))
+              throw Error(
+                "CronJob configuration differs from the reviewed template; reset before a one-run action.",
+              );
+            const job = reviewedCronJobRun(
+              expected,
+              actual,
+              "waypoint-run-" + randomBytes(6).toString("hex"),
+            );
+            assertNoReservedResources([job]);
+            await assertOwned(lab.target);
+            await kube(
+              lab.target,
+              ["-n", namespace, "create", "-f", "-"],
+              JSON.stringify(job),
+            );
+            lab.revision++;
+            lab.checks = [
+              {
+                name: `CronJob/${name} one-run requested`,
+                passed: true,
+                detail:
+                  "An actual Job was created from the reviewed template. Execution completion is not yet verified; inspect its Pods, events and logs.",
+              },
+            ];
           } else if (op.kind === "cleanup") {
             this.cache?.stop();
             if (!lab.target.containerId) await assertNeverCreated(lab.target);
@@ -554,6 +675,9 @@ export class MinikubeRuntime {
   }
   private async applyBaseline() {
     const lab = this.lab!;
+    assertNoReservedResources(lab.plan.resources);
+    assertSafeApplicationSource(lab.plan.source);
+    checkedHttpContracts(lab.plan);
     await assertOwned(lab.target);
     const config = await new LocalConfiguration(
       join(dirname(this.root), "configuration"),
@@ -562,6 +686,27 @@ export class MinikubeRuntime {
       throw Error(
         "Local test configuration changed; clean up and review a new deployment plan.",
       );
+    // Preserve reviewed source Namespace labels on every rewritten namespace,
+    // including the primary namespace initially created for the ownership receipt.
+    for (const namespace of Object.values(
+      lab.plan.namespaceMap ?? { default: lab.namespace },
+    )) {
+      await assertOwned(lab.target);
+      await kube(
+        lab.target,
+        ["apply", "-f", "-"],
+        JSON.stringify({
+          apiVersion: "v1",
+          kind: "Namespace",
+          metadata: {
+            name: namespace,
+            labels: lab.plan.namespaceLabels?.[namespace] ?? {
+              "waypoint.dev/lab": lab.namespace,
+            },
+          },
+        }),
+      );
+    }
     for (const image of lab.plan.localImages ?? []) {
       const current = (
         await run("docker", [
@@ -619,20 +764,6 @@ export class MinikubeRuntime {
         throw Error("Required local test Secret is unavailable.");
       const namespace =
         lab.plan.namespaceMap?.[requirement.namespace] ?? lab.namespace;
-      // Additional namespaces are created before their test Secrets.
-      if (namespace !== lab.namespace)
-        await kube(
-          lab.target,
-          ["apply", "-f", "-"],
-          JSON.stringify({
-            apiVersion: "v1",
-            kind: "Namespace",
-            metadata: {
-              name: namespace,
-              labels: { "waypoint.dev/lab": lab.namespace },
-            },
-          }),
-        );
       await kube(
         lab.target,
         ["-n", namespace, "apply", "-f", "-"],
@@ -845,136 +976,43 @@ export class MinikubeRuntime {
           (o) => o.uid === at(actual, "metadata", "uid"),
         ),
       );
-      check(
-        "CronJob/" + name + " execution",
-        jobs.some((j) =>
-          list(at(j, "status", "conditions")).some(
-            (c) => c.type === "Complete" && c.status === "True",
-          ),
-        ),
-        "CronJob has no observed successful execution yet. Wait for its schedule or run an execution in the owned cluster, then retry baseline verification.",
+      const execution = cronJobExecution(
+        jobs,
+        text(at(actual, "metadata", "uid")),
       );
+      checks.push({
+        name: `CronJob/${name} ${execution.state === "awaiting" ? "awaiting execution" : "execution"}`,
+        passed: execution.state !== "failed",
+        detail: execution.detail,
+      });
+      if (execution.state === "failed") throw Error(execution.detail);
     }
-    if (!lab.plan.contract) return;
-    const contract = lab.plan.contract!;
-    const slices = list(
-      object(
-        JSON.parse(
-          await kube(lab.target, [
-            "-n",
-            contract.namespace ?? lab.namespace,
-            "get",
-            "endpointslices",
-            "-l",
-            "kubernetes.io/service-name=" + contract.service,
-            "-o",
-            "json",
-          ]),
-        ),
-      ).items,
-    );
-    const pods = list(
-      object(
-        JSON.parse(
-          await kube(lab.target, [
-            "-n",
-            contract.namespace ?? lab.namespace,
-            "get",
-            "pods",
-            "-o",
-            "json",
-          ]),
-        ),
-      ).items,
-    );
-    const replicas = list(
-      object(
-        JSON.parse(
-          await kube(lab.target, [
-            "-n",
-            contract.namespace ?? lab.namespace,
-            "get",
-            "replicasets",
-            "-o",
-            "json",
-          ]),
-        ),
-      ).items,
-    );
-    const selectedDeployment = object(
-      JSON.parse(
-        await kube(lab.target, [
-          "-n",
-          contract.namespace ?? lab.namespace,
-          "get",
-          "deployment",
-          contract.deployment,
-          "-o",
-          "json",
-        ]),
-      ),
-    );
-    const deploymentUid = text(at(selectedDeployment, "metadata", "uid"));
-    const replicaUids = new Set(
-      replicas
-        .filter((r) =>
-          list(at(r, "metadata", "ownerReferences")).some(
-            (o) => o.uid === deploymentUid,
+    const contracts = checkedHttpContracts(lab.plan);
+    checks.push({
+      name: "HTTP verification scope",
+      passed: true,
+      detail: contracts.length
+        ? `Checking all ${contracts.length} supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP.`
+        : "No supported HTTP contract was found. Resource configuration/readiness checks do not establish successful application traffic.",
+    });
+    for (const contract of contracts) {
+      const slices = list(
+        object(
+          JSON.parse(
+            await kube(lab.target, [
+              "-n",
+              contract.namespace ?? lab.namespace,
+              "get",
+              "endpointslices",
+              "-l",
+              "kubernetes.io/service-name=" + contract.service,
+              "-o",
+              "json",
+            ]),
           ),
-        )
-        .map((r) => text(at(r, "metadata", "uid"))),
-    );
-    const selectedPods = pods.filter((p) =>
-      list(at(p, "metadata", "ownerReferences")).some((o) =>
-        replicaUids.has(text(o.uid)),
-      ),
-    );
-    const ready = new Set(
-      slices
-        .flatMap((s) => list(s.endpoints))
-        .filter(
-          (e) =>
-            at(e, "conditions", "ready") === true &&
-            at(e, "conditions", "terminating") !== true,
-        )
-        .map((e) => text(at(e, "targetRef", "uid"))),
-    );
-    check(
-      "ready Service backends",
-      selectedPods.filter(
-        (p) =>
-          ready.has(text(at(p, "metadata", "uid"))) &&
-          list(at(p, "status", "conditions")).some(
-            (c) => c.type === "Ready" && c.status === "True",
-          ),
-      ).length === Number(at(selectedDeployment, "spec", "replicas")),
-      "Ready EndpointSlices must target every intended ready replica.",
-    );
-    await this.httpCheck(
-      contract.service,
-      contract.port,
-      contract.path,
-      checks,
-    );
-    if (contract.gateway)
-      await this.httpCheck(
-        contract.gateway.service,
-        contract.gateway.port,
-        contract.gateway.path,
-        checks,
+        ).items,
       );
-    if (lab.incident === "liveness") {
-      const before = new Map(
-        selectedPods.map((p) => [
-          text(at(p, "metadata", "uid")),
-          list(at(p, "status", "containerStatuses")).reduce(
-            (n, c) => n + Number(c.restartCount ?? 0),
-            0,
-          ),
-        ]),
-      );
-      await new Promise((resolve) => setTimeout(resolve, 15000));
-      const after = list(
+      const pods = list(
         object(
           JSON.parse(
             await kube(lab.target, [
@@ -988,21 +1026,129 @@ export class MinikubeRuntime {
           ),
         ).items,
       );
-      check(
-        "stable restart window",
-        after.filter((p) => before.has(text(at(p, "metadata", "uid"))))
-          .length === before.size &&
-          after
-            .filter((p) => before.has(text(at(p, "metadata", "uid"))))
-            .every(
-              (p) =>
-                list(at(p, "status", "containerStatuses")).reduce(
-                  (n, c) => n + Number(c.restartCount ?? 0),
-                  0,
-                ) === before.get(text(at(p, "metadata", "uid"))),
-            ),
-        "No new container restarts across the 15-second recovery window.",
+      const replicas = list(
+        object(
+          JSON.parse(
+            await kube(lab.target, [
+              "-n",
+              contract.namespace ?? lab.namespace,
+              "get",
+              "replicasets",
+              "-o",
+              "json",
+            ]),
+          ),
+        ).items,
       );
+      const selectedDeployment = object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            contract.namespace ?? lab.namespace,
+            "get",
+            "deployment",
+            contract.deployment,
+            "-o",
+            "json",
+          ]),
+        ),
+      );
+      const deploymentUid = text(at(selectedDeployment, "metadata", "uid"));
+      const replicaUids = new Set(
+        replicas
+          .filter((r) =>
+            list(at(r, "metadata", "ownerReferences")).some(
+              (o) => o.uid === deploymentUid,
+            ),
+          )
+          .map((r) => text(at(r, "metadata", "uid"))),
+      );
+      const selectedPods = pods.filter((p) =>
+        list(at(p, "metadata", "ownerReferences")).some((o) =>
+          replicaUids.has(text(o.uid)),
+        ),
+      );
+      const ready = new Set(
+        slices
+          .flatMap((s) => list(s.endpoints))
+          .filter(
+            (e) =>
+              at(e, "conditions", "ready") === true &&
+              at(e, "conditions", "terminating") !== true,
+          )
+          .map((e) => text(at(e, "targetRef", "uid"))),
+      );
+      check(
+        `${contract.namespace ?? lab.namespace}/${contract.service} ready Service backends`,
+        selectedPods.filter(
+          (p) =>
+            ready.has(text(at(p, "metadata", "uid"))) &&
+            list(at(p, "status", "conditions")).some(
+              (c) => c.type === "Ready" && c.status === "True",
+            ),
+        ).length === Number(at(selectedDeployment, "spec", "replicas")),
+        "Ready EndpointSlices must target every intended ready replica.",
+      );
+      await this.httpCheck(
+        contract.service,
+        contract.port,
+        contract.path,
+        checks,
+        contract.namespace ?? lab.namespace,
+      );
+      if (contract.gateway)
+        await this.httpCheck(
+          contract.gateway.service,
+          contract.gateway.port,
+          contract.gateway.path,
+          checks,
+          contract.namespace ?? lab.namespace,
+        );
+      if (
+        lab.incident === "liveness" &&
+        targetKey(contract, lab.namespace) ===
+          targetKey(lab.plan.contract!, lab.namespace)
+      ) {
+        const before = new Map(
+          selectedPods.map((p) => [
+            text(at(p, "metadata", "uid")),
+            list(at(p, "status", "containerStatuses")).reduce(
+              (n, c) => n + Number(c.restartCount ?? 0),
+              0,
+            ),
+          ]),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 15000));
+        const after = list(
+          object(
+            JSON.parse(
+              await kube(lab.target, [
+                "-n",
+                contract.namespace ?? lab.namespace,
+                "get",
+                "pods",
+                "-o",
+                "json",
+              ]),
+            ),
+          ).items,
+        );
+        check(
+          "stable restart window",
+          after.filter((p) => before.has(text(at(p, "metadata", "uid"))))
+            .length === before.size &&
+            after
+              .filter((p) => before.has(text(at(p, "metadata", "uid"))))
+              .every(
+                (p) =>
+                  list(at(p, "status", "containerStatuses")).reduce(
+                    (n, c) => n + Number(c.restartCount ?? 0),
+                    0,
+                  ) === before.get(text(at(p, "metadata", "uid"))),
+              ),
+          "No new container restarts across the 15-second recovery window.",
+        );
+      }
     }
   }
   private async httpCheck(
@@ -1010,6 +1156,7 @@ export class MinikubeRuntime {
     port: number,
     path: string,
     checks: LiveLab["checks"],
+    namespace: string,
   ) {
     const lab = this.lab!;
     await assertOwned(lab.target);
@@ -1020,21 +1167,13 @@ export class MinikubeRuntime {
         JSON.parse(
           await kube(
             lab.target,
-            [
-              "-n",
-              lab.plan.contract?.namespace ?? lab.namespace,
-              "create",
-              "-f",
-              "-",
-              "-o",
-              "json",
-            ],
+            ["-n", namespace, "create", "-f", "-", "-o", "json"],
             JSON.stringify({
               apiVersion: "v1",
               kind: "Pod",
               metadata: {
                 name: helper,
-                namespace: lab.plan.contract?.namespace ?? lab.namespace,
+                namespace: namespace,
                 labels: { "waypoint/check": "true" },
               },
               spec: {
@@ -1065,7 +1204,7 @@ export class MinikubeRuntime {
         lab.target,
         [
           "-n",
-          lab.plan.contract?.namespace ?? lab.namespace,
+          namespace,
           "wait",
           "--for=jsonpath={.status.phase}=Succeeded",
           "pod/" + helper,
@@ -1074,16 +1213,10 @@ export class MinikubeRuntime {
         undefined,
         100000,
       );
-      const logs = await kube(
-        lab.target,
-        ["-n", lab.plan.contract?.namespace ?? lab.namespace, "logs", helper],
-        undefined,
-        20000,
-      );
       checks.push({
-        name: "in-cluster Service HTTP " + service,
+        name: `in-cluster Service HTTP ${namespace}/${service}:${port}${path}`,
         passed: true,
-        detail: logs.slice(0, 2000),
+        detail: `HTTP request through Service ${namespace}/${service}:${port}${path} exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence.`,
       });
     } finally {
       if (helperUid) {
@@ -1092,7 +1225,7 @@ export class MinikubeRuntime {
           JSON.parse(
             await kube(lab.target, [
               "-n",
-              lab.plan.contract?.namespace ?? lab.namespace,
+              namespace,
               "get",
               "pod",
               helper,
@@ -1104,7 +1237,7 @@ export class MinikubeRuntime {
         if (at(now, "metadata", "uid") === helperUid)
           await kube(lab.target, [
             "-n",
-            lab.plan.contract?.namespace ?? lab.namespace,
+            namespace,
             "delete",
             "pod",
             helper,
@@ -1148,37 +1281,63 @@ export class MinikubeRuntime {
       );
       const field =
         lab.incident === "liveness" ? "livenessProbe" : "readinessProbe";
-      const relevant = pods.filter((p) =>
-        list(at(p, "spec", "containers")).some(
-          (c) =>
-            c.name === contract.container &&
-            text(at(c, field, "httpGet", "path")).startsWith(
-              "/waypoint-missing-",
-            ),
+      const deployment = object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            contract.namespace ?? lab.namespace,
+            "get",
+            "deployment",
+            contract.deployment,
+            "-o",
+            "json",
+          ]),
         ),
       );
-      const confirmed = relevant.some(
+      const replicas = list(
+        object(
+          JSON.parse(
+            await kube(lab.target, [
+              "-n",
+              contract.namespace ?? lab.namespace,
+              "get",
+              "replicasets",
+              "-o",
+              "json",
+            ]),
+          ),
+        ).items,
+      );
+      const ownedReplicas = new Set(
+        replicas
+          .filter((r) =>
+            list(at(r, "metadata", "ownerReferences")).some(
+              (owner) => owner.uid === at(deployment, "metadata", "uid"),
+            ),
+          )
+          .map((r) => text(at(r, "metadata", "uid"))),
+      );
+      const relevant = pods.filter(
         (p) =>
-          events.some(
-            (e) =>
-              at(e, "involvedObject", "uid") === at(p, "metadata", "uid") &&
-              e.reason === "Unhealthy" &&
-              text(e.message)
-                .toLowerCase()
-                .includes(
-                  lab.incident === "liveness"
-                    ? "liveness probe"
-                    : "readiness probe",
-                ),
+          list(at(p, "metadata", "ownerReferences")).some((owner) =>
+            ownedReplicas.has(text(owner.uid)),
           ) &&
-          (lab.incident === "liveness"
-            ? list(at(p, "status", "containerStatuses")).some(
-                (c) =>
-                  c.name === contract.container && Number(c.restartCount) > 0,
-              )
-            : list(at(p, "status", "conditions")).some(
-                (c) => c.type === "Ready" && c.status === "False",
-              )),
+          list(at(p, "spec", "containers")).some(
+            (c) =>
+              c.name === contract.container &&
+              text(at(c, field, "httpGet", "path")).startsWith(
+                "/waypoint-missing-",
+              ),
+          ),
+      );
+      const confirmed = relevant.some((p) =>
+        corroboratedProbeFailure(
+          p,
+          events,
+          contract.container,
+          lab.incident!,
+          lab.incidentInjectedAt ?? lab.startedAt,
+        ),
       );
       if (confirmed) {
         lab.checks = [
@@ -1197,14 +1356,33 @@ export class MinikubeRuntime {
       "Injected probe change did not produce corroborated symptoms within 90 seconds. Reset the baseline; this application may not support this incident.",
     );
   }
-  async logs(uid: string, container: string, close = false) {
+  async logs(
+    uid: string,
+    container: string,
+    close = false,
+    scope?: { sessionId: string; generation: number; revision: number },
+  ) {
     await this.load();
+    const assertScope = () => {
+      if (
+        !scope ||
+        this.lab?.id !== scope.sessionId ||
+        this.lab.generation !== scope.generation ||
+        this.lab.revision !== scope.revision
+      )
+        throw new LabConflict(
+          "Lab changed. Reopen logs for the current session.",
+        );
+    };
+    assertScope();
     if (!this.cache) throw Error("Lab observations unavailable.");
     if (close) {
       this.cache.closeLog(uid, container);
       return null;
     }
-    return this.cache.follow(uid, container);
+    const buffer = await this.cache.follow(uid, container);
+    assertScope();
+    return buffer;
   }
   close() {
     this.cache?.stop();

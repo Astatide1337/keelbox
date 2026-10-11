@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import {
   repositoryEntries,
   publicManifest,
+  kustomizeRendererVersion,
 } from "../../lib/server/repository-import";
 import { readManifestInputs } from "../../lib/server/project-store";
 import { LocalConfiguration } from "../../lib/server/local-configuration";
@@ -21,6 +22,30 @@ import {
 } from "../../lib/domain/generated-incident";
 import { stringify } from "yaml";
 import { at, list, object } from "../../lib/domain/types";
+test("Kustomize provenance retains bounded actual versions rather than kubectl build metadata", () => {
+  assert.equal(
+    kustomizeRendererVersion(
+      JSON.stringify({
+        clientVersion: {
+          gitVersion: "v1.37.1",
+          gitCommit: "a".repeat(500),
+          buildDate: "2026-01-01",
+        },
+        kustomizeVersion: "v5.8.1",
+      }),
+    ),
+    "kubectl v1.37.1; kustomize v5.8.1",
+  );
+  for (const output of [
+    "invalid",
+    "{}",
+    JSON.stringify({
+      clientVersion: { gitVersion: "v1.37.1" },
+      kustomizeVersion: "password: synthetic",
+    }),
+  ])
+    assert.throws(() => kustomizeRendererVersion(output));
+});
 test("recursive repository discovery finds application entries and ignores machine state", async () => {
   const root = await mkdtemp(join(tmpdir(), "waypoint-repository-"));
   try {

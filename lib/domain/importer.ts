@@ -65,7 +65,10 @@ export function parseSources(
   const seen = new Set<string>();
   if (
     files.length > 100 ||
-    files.reduce((n, f) => n + f.content.length, 0) > 2_000_000
+    files.reduce(
+      (n, f) => n + new TextEncoder().encode(f.content).byteLength,
+      0,
+    ) > 2_000_000
   )
     return {
       resources: [],
@@ -152,7 +155,7 @@ export function parseSources(
       function add(value: unknown, prefix: string[] = []) {
         const r = object(value);
         const kind = text(r.kind);
-        if (kind === "List") {
+        if (kind === "List" || kind.endsWith("List")) {
           if (!Array.isArray(r.items)) {
             result.diagnostics.push({
               fileId: file.id,
@@ -161,7 +164,18 @@ export function parseSources(
             });
             return;
           }
-          r.items.forEach((v, i) => add(v, [...prefix, "items", String(i)]));
+          r.items.forEach((v, i) =>
+            add(
+              kind === "List"
+                ? v
+                : {
+                    apiVersion: r.apiVersion,
+                    kind: kind.slice(0, -4),
+                    ...object(v),
+                  },
+              [...prefix, "items", String(i)],
+            ),
+          );
           return;
         }
         const name = text(at(r, "metadata", "name")),

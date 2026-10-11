@@ -1,4 +1,5 @@
-import { repositoryFiles } from "./repository-import";
+import { repositoryFiles, type RepositoryOptions } from "./repository-import";
+import { resolveArgoFiles } from "./argo-import";
 import {
   readFile,
   writeFile,
@@ -66,11 +67,45 @@ export class ProjectStore {
   }
 }
 export const projectStore = new ProjectStore();
-export async function readManifestInputs(paths: string[], options: {entry?:string; values?:string[]; release?:string} = {}): Promise<Snapshot> {
-  if (!paths.length) throw Error("Usage: waypoint import REPOSITORY [--entry APPLICATION] [--values FILE]");
-  const {files, notes} = await repositoryFiles(paths, options);
-  if(files.length===1 && files[0].content.trim().startsWith("{") && files[0].content.includes("playground-snapshot-")) return importSnapshot(files[0].content);
-  const first=resolve(paths[0]); const st=await lstat(first);
-  const label=options.entry ? basename(options.entry) : st.isDirectory() ? basename(first)==="manifests" ? basename(dirname(first)) : basename(first) : basename(first);
-  return importSnapshot(JSON.stringify({...manifestProject(files),label,errors:notes}));
+export async function readManifestInputs(
+  paths: string[],
+  options: RepositoryOptions & { resolveArgo?: boolean } = {},
+): Promise<Snapshot> {
+  if (!paths.length)
+    throw Error(
+      "Usage: waypoint import REPOSITORY [--entry APPLICATION] [--values FILE]",
+    );
+  const rendered = await repositoryFiles(paths, options);
+  const resolved = options.resolveArgo
+    ? await resolveArgoFiles(rendered.files)
+    : rendered;
+  const { files } = resolved,
+    notes = options.resolveArgo
+      ? [...rendered.notes, ...resolved.notes]
+      : rendered.notes;
+  if (
+    files.length === 1 &&
+    files[0].content.trim().startsWith("{") &&
+    files[0].content.includes("playground-snapshot-")
+  )
+    return importSnapshot(files[0].content);
+  const first = resolve(paths[0]);
+  const st = await lstat(first);
+  const label = options.entry
+    ? basename(options.entry)
+    : st.isDirectory()
+      ? basename(first) === "manifests"
+        ? basename(dirname(first))
+        : basename(first)
+      : basename(first);
+  return importSnapshot(
+    JSON.stringify({
+      ...manifestProject(files),
+      label,
+      errors: notes,
+      renderProvenance: options.resolveArgo
+        ? [...rendered.provenance, ...resolved.provenance]
+        : rendered.provenance,
+    }),
+  );
 }

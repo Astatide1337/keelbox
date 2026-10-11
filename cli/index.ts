@@ -24,7 +24,12 @@ async function main() {
 Commands:
   start                       Open local UI and sign in with ChatGPT
   doctor                       Check Linux/Docker/Minikube/kubectl and resources
-  import PATH                  Select authored manifests in the local UI
+  import PATH                  Review/select YAML/JSON, Helm or Kustomize in the local UI
+    --list | --entry PATH      Choose an application/environment in a repository
+    --values FILE (ordered) --release NAME --namespace NAME
+    --kube-version VERSION --api-version API (repeatable)
+    --recurse                  Explicitly include a selected YAML subtree
+    --resolve-argo             Resolve pinned public Argo desired sources once
   collect --context NAME --namespaces ns1,ns2 --out FILE [--kubeconfig FILE]
                                Read-only capture; no Secrets/logs
   lab plan PATH                Preview a supported local deployment
@@ -32,7 +37,9 @@ Commands:
   lab status                   Actual session/evidence state and explicit terminal target
   lab incident readiness|liveness
   lab apply FILE               Apply a repair to the lab copy only
-  lab check | reset | cleanup   Verify, restore baseline, or delete the owned lab
+  lab check | reset | cleanup   Verify, reapply baseline (preserve Job/PVC data), or delete owned lab
+  lab run-cronjob NS/NAME --confirm
+                               Run one reviewed Job without changing its schedule
   login | auth status | auth logout
 PORT controls the loopback UI port (default 3000). No image builds or postinstall effects.`);
     return;
@@ -91,12 +98,33 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
       return;
     }
     if (
-      !["incident", "apply", "check", "reset", "recover", "cleanup"].includes(
-        kind,
-      )
+      ![
+        "incident",
+        "apply",
+        "check",
+        "reset",
+        "recover",
+        "cleanup",
+        "run-cronjob",
+      ].includes(kind)
     )
       throw Error("Unknown lab command. Run waypoint help.");
     if (!current.lab) throw Error("No local lab. Review lab plan first.");
+    if (kind === "reset")
+      console.log(
+        JSON.stringify(
+          current.resetPreview ??
+            current.lab.resetPreview ?? {
+              effect: "Reapply baseline; preserve Job executions and PVC data.",
+            },
+          null,
+          2,
+        ),
+      );
+    if (kind === "run-cronjob" && (!args.includes("--confirm") || !args[1]))
+      throw Error(
+        "Review waypoint lab status scheduledExecutions, then use waypoint lab run-cronjob NAMESPACE/NAME --confirm. This creates one Job in the owned lab.",
+      );
     const body = {
       kind,
       operationId: crypto.randomUUID(),
@@ -104,6 +132,7 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
       generation: current.lab.generation,
       revision: current.lab.revision,
       ...(kind === "incident" ? { incident: args[1] ?? "readiness" } : {}),
+      ...(kind === "run-cronjob" ? { target: args[1] } : {}),
       ...(kind === "apply"
         ? { source: await readFile(resolve(args[1] ?? ""), "utf8") }
         : {}),
@@ -117,18 +146,41 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
       console.log(JSON.stringify(await repositoryEntries(root), null, 2));
       return;
     }
-    const options: { entry?: string; values: string[]; release?: string } = {
+    const options: import("../lib/server/repository-import").RepositoryOptions & {
+      resolveArgo?: boolean;
+    } = {
       values: [],
     };
     const paths: string[] = [];
     for (let i = 0; i < args.length; i++) {
-      if (["--entry", "--values", "--release"].includes(args[i])) {
+      if (args[i] === "--resolve-argo") {
+        options.resolveArgo = true;
+        continue;
+      }
+      if (args[i] === "--recurse") {
+        options.recurse = true;
+        continue;
+      }
+      if (
+        [
+          "--entry",
+          "--values",
+          "--release",
+          "--namespace",
+          "--kube-version",
+          "--api-version",
+        ].includes(args[i])
+      ) {
         const flag = args[i],
           value = args[++i];
         if (!value || value.startsWith("--"))
           throw Error("Missing value for " + flag);
-        if (flag === "--values") options.values.push(value);
+        if (flag === "--values") (options.values ??= []).push(value);
         else if (flag === "--entry") options.entry = value;
+        else if (flag === "--namespace") options.namespace = value;
+        else if (flag === "--kube-version") options.kubernetesVersion = value;
+        else if (flag === "--api-version")
+          (options.apiVersions ??= []).push(value);
         else options.release = value;
       } else if (args[i].startsWith("--"))
         throw Error("Unknown import option: " + args[i]);

@@ -18,6 +18,9 @@ export function RelationshipEvidence({
   onEvidence: (ref: EvidenceRef) => void;
   focusId?: string | null;
 }) {
+  const visible = focusId
+    ? relationships.filter((relationship) => relationship.id === focusId)
+    : relationships;
   return (
     <Accordion
       type="single"
@@ -27,14 +30,14 @@ export function RelationshipEvidence({
     >
       <AccordionItem value="relationships">
         <AccordionTrigger>
-          Relationship evidence ({relationships.length})
+          Relationship evidence ({visible.length})
         </AccordionTrigger>
         <AccordionContent>
           <p className="muted">
             Inferred from fields. These relationships do not verify live
             traffic.
           </p>
-          {relationships.map((rel) => (
+          {visible.map((rel) => (
             <div className="relationship-evidence" key={rel.id}>
               <h3>{rel.title}</h3>
               <p>{rel.explanation}</p>
@@ -52,9 +55,11 @@ export function RelationshipEvidence({
               ))}
             </div>
           ))}
-          {!relationships.length && (
+          {!visible.length && (
             <p className="muted">
-              No deterministic relationship evidence is available.
+              {focusId
+                ? "The selected relationship is no longer available. Select another relationship in the graph."
+                : "No deterministic relationship evidence is available."}
             </p>
           )}
         </AccordionContent>

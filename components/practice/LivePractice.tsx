@@ -6,9 +6,45 @@ import {
   SelectContent,
   SelectItem,
 } from "../ui/select";
+import {
+  acceptsObservation,
+  type ObservationIdentity,
+} from "@/lib/practice/live-observation";
+import { observationFreshness } from "@/lib/domain/freshness";
+import { snapshotDigest } from "@/lib/domain/snapshot";
+import { LearningJourney } from "./LearningJourney";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "../ui/accordion";
+import {
+  emptyProgress,
+  restoreProgress,
+  learningKey,
+  lessonCopy,
+  summarizeEvidence,
+  type LearningProgress,
+  type LearningContext,
+} from "@/lib/practice/live-learning";
+import type { Relationship } from "@/lib/domain/types";
 import { targetKey } from "@/lib/domain/generated-incident";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import {
+  conditionSummary,
+  resourceAge,
+  configurationDifferences,
+} from "@/lib/ui/inspection";
 import { QuestionDialog } from "../auth/QuestionDialog";
 import { resourceKey } from "@/lib/domain/types";
+import { resourcePresentation } from "@/lib/domain/presentation";
 import { LocalImages } from "./LocalImages";
 import { GenerateIncident } from "./GenerateIncident";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -45,6 +81,18 @@ import type { LiveLab } from "@/lib/server/minikube-runtime";
 import type { CacheStatus, LogBuffer } from "@/lib/server/observations/cache";
 type View = {
   plan: DeploymentPlan | null;
+  resetPreview?: {
+    details: string[];
+    preservesVolumeData: boolean;
+    recreatesJobs: boolean;
+    runsCronJobs: boolean;
+  } | null;
+  scheduledExecutions?: {
+    target: string;
+    name: string;
+    state: string;
+    detail: string;
+  }[];
   lab:
     | (Omit<LiveLab, "target" | "operations"> & {
         terminal: string;
@@ -52,6 +100,11 @@ type View = {
           resources: Record<string, unknown>[];
           events: Record<string, unknown>[];
           status: CacheStatus[];
+          connection?: {
+            state: "connecting" | "stale" | "current";
+            lastObservation: string | null;
+            reasons: string[];
+          };
           receivedAt: string | null;
         };
       })
@@ -71,53 +124,179 @@ const retainedLabDrafts = new Map<
 export function LivePractice({
   project,
   destination = "Practice",
+  onContext,
+  askRequest = 0,
 }: {
   project: Snapshot;
   destination?: string;
+  onContext?: (value: {
+    scope: {
+      labId?: string;
+      labGeneration?: number;
+      labRevision?: number;
+      resourceId?: string;
+      relationshipId?: string;
+      learning?: LearningContext;
+    };
+    evidenceKey: string;
+    stale: boolean;
+    available: boolean;
+  }) => void;
+  askRequest?: number;
 }) {
   const practice = destination === "Practice";
   const [incidentTarget, setIncidentTarget] = useState("");
+  const [reviewOperation, setReviewOperation] = useState<{
+    kind: "reset" | "cleanup" | "run-cronjob";
+    target?: string;
+  } | null>(null);
   const [questionOpen, setQuestionOpen] = useState(false);
   const account = useAccount();
   const accountKey = account.status?.profile?.key ?? "development";
-  const retained = useRef(retainedLabDrafts.get(accountKey)).current;
+  const sourceDigest = useMemo(() => snapshotDigest(project), [project]);
+  const [projectFileHash, setProjectFileHash] = useState("");
+  useEffect(() => {
+    let active = true;
+    setProjectFileHash("");
+    void crypto.subtle
+      .digest(
+        "SHA-256",
+        new TextEncoder().encode(JSON.stringify(project.files)),
+      )
+      .then((buffer) => {
+        if (active)
+          setProjectFileHash(
+            [...new Uint8Array(buffer)]
+              .map((n) => n.toString(16).padStart(2, "0"))
+              .join(""),
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [sourceDigest]);
+  const [loadedNotebook, setLoadedNotebook] = useState("");
+  const [progress, setProgress] = useState<LearningProgress>(emptyProgress);
+  const [transport, setTransport] = useState<{
+    state: "connecting" | "current" | "disconnected";
+    lastSuccess: string | null;
+    reason: string;
+  }>({
+    state: "connecting",
+    lastSuccess: null,
+    reason: "Connecting to local runtime",
+  });
+  const [pollEpoch, setPollEpoch] = useState(0);
+  const [revealedFilters, setRevealedFilters] = useState<{
+    kind: string;
+    controllers: boolean;
+  } | null>(null);
+  const [helpField, setHelpField] = useState<string | undefined>(undefined);
+  const [selectedEdge, setSelectedEdge] = useState<Relationship | null>(null);
+  const notebookScope = useRef("");
+  const initialAsk = useRef(askRequest);
+  useEffect(() => {
+    if (askRequest !== initialAsk.current) {
+      initialAsk.current = askRequest;
+      setQuestionOpen(true);
+    }
+  }, [askRequest]);
   const { request } = account,
     [view, setView] = useState<View>({ plan: null, lab: null }),
     [error, setError] = useState(""),
     [pending, setPending] = useState(false),
-    [draft, setDraft] = useState(retained?.draft ?? ""),
-    [selected, select] = useState<string | null>(retained?.selected ?? null),
-    [tab, setTab] = useState(retained?.tab ?? "overview"),
-    [hint, setHint] = useState(0),
+    [draft, setDraft] = useState(""),
+    [selected, selectResource] = useState<string | null>(null),
+    [tab, setTab] = useState("overview"),
     [logs, setLogs] = useState<LogBuffer | null>(null),
     [kind, setKind] = useState("all"),
     [controllers, setControllers] = useState(true);
-  const dirty = useRef(retained?.dirty ?? false),
-    revision = useRef(retained?.revision ?? ""),
+  const [mobilePane, setMobilePane] = useState<"tree" | "graph" | "inspector">(
+    "graph",
+  );
+  const [notebookOpen, setNotebookOpen] = useState(false);
+  const [persistenceError, setPersistenceError] = useState("");
+  function select(id: string | null) {
+    setSelectedEdge(null);
+    setHelpField(undefined);
+    selectResource(id);
+    if (id) setMobilePane("inspector");
+  }
+  const dirty = useRef(false),
+    draftEditVersion = useRef(0),
+    revision = useRef(""),
     alive = useRef(true),
-    positions = useRef<Record<string, { x: number; y: number }>>(
-      retained?.positions ?? {},
-    );
+    positions = useRef<Record<string, { x: number; y: number }>>({});
+  const mutationEpoch = useRef(0),
+    requestSequence = useRef(0),
+    acceptedSequence = useRef(0);
+  const acceptedIdentity = useRef<ObservationIdentity>(null);
+  const contextOwner = useRef(accountKey + ":" + sourceDigest);
   useEffect(() => {
-    retainedLabDrafts.set(accountKey, {
-      draft,
-      selected,
-      tab,
-      dirty: dirty.current,
-      revision: revision.current,
-      positions: positions.current,
-    });
-  }, [accountKey, draft, selected, tab]);
-  const pendingApply = useRef<{ id: string; revision: number } | null>(null);
-  const update = (data: View) => {
-    if (!alive.current) return;
+    const owner = accountKey + ":" + sourceDigest;
+    if (contextOwner.current === owner) return;
+    contextOwner.current = owner;
+    mutationEpoch.current++;
+    acceptedIdentity.current = null;
+    notebookScope.current = "";
+    setLoadedNotebook("");
+    setView({ plan: null, lab: null });
+    setProgress(emptyProgress());
+    dirty.current = false;
+    revision.current = "";
+    positions.current = {};
+    setDraft("");
+    select(null);
+    setLogs(null);
+    setQuestionOpen(false);
+    setPending(false);
+  }, [accountKey, sourceDigest]);
+  const pendingApply = useRef<{
+    id: string;
+    revision: number;
+    editVersion: number;
+  } | null>(null);
+  const update = (data: View, sequence = ++requestSequence.current) => {
+    if (
+      !alive.current ||
+      !acceptsObservation(
+        acceptedIdentity.current,
+        data.lab,
+        sequence,
+        acceptedSequence.current,
+      )
+    )
+      return;
+    acceptedSequence.current = Math.max(acceptedSequence.current, sequence);
+    acceptedIdentity.current = data.lab
+      ? {
+          id: data.lab.id,
+          generation: data.lab.generation,
+          revision: data.lab.revision,
+        }
+      : null;
+    if (
+      data.lab &&
+      data.lab.phase !== "stopped" &&
+      data.lab.plan.sourceHash !== projectFileHash
+    ) {
+      setError(
+        "A lab for a previous project is still running. Return to that project to inspect or clean it up before creating this project's lab.",
+      );
+      setView({
+        plan: data.plan?.sourceHash === projectFileHash ? data.plan : null,
+        lab: null,
+      });
+      return;
+    }
     setView(data);
     if (
       pendingApply.current &&
       data.lab?.id === pendingApply.current.id &&
       data.lab.revision > pendingApply.current.revision
     ) {
-      dirty.current = false;
+      if (draftEditVersion.current === pendingApply.current.editVersion)
+        dirty.current = false;
       pendingApply.current = null;
     }
     const key =
@@ -130,16 +309,30 @@ export function LivePractice({
   useEffect(() => {
     alive.current = true;
     let polling = false;
+    let stopped = false;
     const poll = async () => {
-      if (polling) return;
+      if (polling || !projectFileHash) return;
       polling = true;
+      const epoch = mutationEpoch.current,
+        sequence = ++requestSequence.current;
       try {
         const r = await request("/api/lab");
         const data = await r.json();
+        if (stopped || epoch !== mutationEpoch.current) return;
         if (!r.ok) throw Error(data.error);
-        update(data);
+        setTransport({
+          state: "current",
+          lastSuccess: new Date().toISOString(),
+          reason: "",
+        });
+        update(data, sequence);
       } catch (e) {
-        if (alive.current) setError((e as Error).message);
+        if (!stopped && alive.current && epoch === mutationEpoch.current)
+          setTransport((previous) => ({
+            ...previous,
+            state: "disconnected",
+            reason: (e as Error).message,
+          }));
       } finally {
         polling = false;
       }
@@ -147,17 +340,24 @@ export function LivePractice({
     void poll();
     const timer = setInterval(poll, 1500);
     return () => {
+      stopped = true;
       alive.current = false;
       clearInterval(timer);
     };
-  }, [request]);
+  }, [request, sourceDigest, projectFileHash, pollEpoch]);
   async function action(kind: string, extra: Record<string, unknown> = {}) {
     setPending(true);
     setError("");
+    const epoch = ++mutationEpoch.current,
+      sequence = ++requestSequence.current;
     try {
       const lab = view.lab;
       if (kind === "apply" && lab)
-        pendingApply.current = { id: lab.id, revision: lab.revision };
+        pendingApply.current = {
+          id: lab.id,
+          revision: lab.revision,
+          editVersion: draftEditVersion.current,
+        };
       const body = {
         kind,
         ...(["plan", "create"].includes(kind)
@@ -175,26 +375,196 @@ export function LivePractice({
         body: JSON.stringify(body),
       });
       const data = await r.json();
+      if (!alive.current || epoch !== mutationEpoch.current) return;
       if (!r.ok) throw Error(data.error);
       if (kind === "reset") {
         dirty.current = false;
         revision.current = "";
       }
       if (kind === "reset") {
-        setHint(0);
+        setProgress(emptyProgress());
         setLogs(null);
         select(null);
       }
-      update(data);
+      update(data, sequence);
     } catch (e) {
-      pendingApply.current = null;
-      setError((e as Error).message);
+      if (alive.current && epoch === mutationEpoch.current) {
+        pendingApply.current = null;
+        setError((e as Error).message);
+      }
     } finally {
-      setPending(false);
+      if (alive.current && epoch === mutationEpoch.current) setPending(false);
     }
   }
   const lab = view.lab,
     busy = pending || !!lab?.operation;
+  useEffect(() => {
+    if (lab?.phase === "completed") setNotebookOpen(true);
+    else if (lab?.phase === "ready") setNotebookOpen(false);
+  }, [lab?.generation, lab?.phase]);
+  const persistenceKey = lab
+    ? learningKey(accountKey, sourceDigest, lab.id, lab.generation)
+    : "";
+  useEffect(() => {
+    if (!persistenceKey || notebookScope.current === persistenceKey) return;
+    notebookScope.current = persistenceKey;
+    setQuestionOpen(false);
+    setSelectedEdge(null);
+    setLogs(null);
+    let restored = emptyProgress();
+    try {
+      restored = restoreProgress(localStorage.getItem(persistenceKey));
+    } catch {}
+    setProgress(restored);
+    setLoadedNotebook(persistenceKey);
+    const saved = retainedLabDrafts.get(persistenceKey);
+    let stored: typeof saved = saved;
+    if (!stored)
+      try {
+        const json = localStorage.getItem(persistenceKey + ":draft");
+        if (json && json.length < 2_100_000) stored = JSON.parse(json);
+      } catch {}
+    if (stored && typeof stored.draft === "string") {
+      dirty.current = !!stored.dirty;
+      revision.current = stored.revision;
+      setDraft(stored.draft);
+      select(stored.selected);
+      setTab(stored.tab);
+      positions.current = stored.positions ?? {};
+    } else {
+      dirty.current = false;
+      revision.current = "";
+      setDraft(lab?.source ?? "");
+      select(null);
+      setTab("overview");
+      positions.current = {};
+    }
+    const query = new URL(window.location.href).searchParams;
+    if (
+      query.get("labSession") === lab?.id &&
+      query.get("labGeneration") === String(lab?.generation) &&
+      query.get("labProject") === sourceDigest
+    ) {
+      select(query.get("labResource"));
+      const restoredKind = query.get("labKind");
+      if (restoredKind) setKind(restoredKind);
+      setControllers(query.get("labControllers") !== "collapsed");
+      const nextTab = query.get("labTab");
+      if (
+        nextTab &&
+        ["overview", "yaml", "events", "logs", "relationships"].includes(
+          nextTab,
+        )
+      )
+        setTab(nextTab);
+
+      const pane = query.get("labPane");
+      if (pane === "tree" || pane === "graph" || pane === "inspector")
+        setMobilePane(pane);
+    }
+  }, [persistenceKey]);
+  useEffect(() => {
+    if (!lab || loadedNotebook !== persistenceKey) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("labSession", lab.id);
+    url.searchParams.set("labGeneration", String(lab.generation));
+    url.searchParams.set("labProject", sourceDigest);
+    url.searchParams.set("labKind", kind);
+    url.searchParams.set(
+      "labControllers",
+      controllers ? "expanded" : "collapsed",
+    );
+    url.searchParams.set("labTab", tab);
+    url.searchParams.set("labPane", mobilePane);
+    if (selected) url.searchParams.set("labResource", selected);
+    else url.searchParams.delete("labResource");
+    if (url.href !== window.location.href)
+      window.history.replaceState(null, "", url);
+  }, [
+    loadedNotebook,
+    persistenceKey,
+    lab?.id,
+    lab?.generation,
+    selected,
+    tab,
+    mobilePane,
+    sourceDigest,
+    kind,
+    controllers,
+  ]);
+  useEffect(() => {
+    const restore = () => {
+      const query = new URL(window.location.href).searchParams;
+      if (
+        query.get("labSession") !== lab?.id ||
+        query.get("labGeneration") !== String(lab?.generation) ||
+        query.get("labProject") !== sourceDigest
+      )
+        return;
+      select(query.get("labResource"));
+      const restoredKind = query.get("labKind");
+      if (restoredKind) setKind(restoredKind);
+      setControllers(query.get("labControllers") !== "collapsed");
+      const nextTab = query.get("labTab");
+      if (
+        nextTab &&
+        ["overview", "yaml", "events", "logs", "relationships"].includes(
+          nextTab,
+        )
+      )
+        setTab(nextTab);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [lab?.id, lab?.generation, sourceDigest]);
+  useEffect(() => {
+    if (!persistenceKey || loadedNotebook !== persistenceKey) return;
+    const saved = {
+      draft,
+      selected,
+      tab,
+      dirty: dirty.current,
+      revision: revision.current,
+      positions: positions.current,
+    };
+    retainedLabDrafts.set(persistenceKey, saved);
+    if (retainedLabDrafts.size > 100)
+      retainedLabDrafts.delete(retainedLabDrafts.keys().next().value!);
+    try {
+      localStorage.setItem(persistenceKey + ":draft", JSON.stringify(saved));
+      localStorage.setItem(persistenceKey, JSON.stringify(progress));
+      setPersistenceError("");
+    } catch {
+      setPersistenceError(
+        "Browser storage is full or unavailable. This draft and notebook remain in memory; copy the draft before closing or clearing storage.",
+      );
+    }
+  }, [persistenceKey, loadedNotebook, draft, selected, tab, progress]);
+  useEffect(() => {
+    if (!lab || !persistenceKey || loadedNotebook !== persistenceKey) return;
+    const summary = summarizeEvidence(
+      lab.evidence.resources,
+      lab.evidence.events,
+      lab.evidence.receivedAt,
+      lab.revision,
+    );
+    if (
+      lab.phase === "running" &&
+      !progress.before &&
+      (summary.pods.some((p) => p.ready === "False") ||
+        summary.events.some((e) => e.reason === "Unhealthy"))
+    )
+      setProgress((p) => ({ ...p, before: summary }));
+    if (lab.phase === "completed" && !progress.after)
+      setProgress((p) => ({ ...p, after: summary }));
+  }, [
+    lab?.phase,
+    lab?.evidence.receivedAt,
+    persistenceKey,
+    loadedNotebook,
+    progress.before,
+    progress.after,
+  ]);
   const parsed = useMemo(
     () =>
       parseSources([
@@ -223,11 +593,24 @@ export function LivePractice({
     [parsed],
   );
   const analysis = useMemo(() => analyze(resources), [resources]);
+  useEffect(() => {
+    if (
+      selectedEdge &&
+      !analysis.relationships.some((e) => e.id === selectedEdge.id)
+    )
+      setSelectedEdge(null);
+  }, [analysis, selectedEdge]);
   const resource = resources.find((r) => r.id === selected) ?? null;
-  const stale =
-    !!lab &&
-    (!lab.evidence.status.length ||
-      lab.evidence.status.some((s) => s.state !== "current"));
+  const evidenceConnection = lab
+    ? observationFreshness(lab.evidence.status)
+    : null;
+  const stale = Boolean(
+    transport.state !== "current" ||
+    (!!lab &&
+      (evidenceConnection?.state !== "current" ||
+        (lab.evidence.connection &&
+          lab.evidence.connection.state !== "current"))),
+  );
   const draftParsed = useMemo(
     () => parseSources([{ id: "draft", name: "Lab repair", content: draft }]),
     [draft],
@@ -251,6 +634,7 @@ export function LivePractice({
   );
   const observation: Observation | null = lab
     ? {
+        live: true,
         sessionId: lab.id,
         generation: lab.generation,
         revision: lab.revision,
@@ -266,27 +650,51 @@ export function LivePractice({
       (controllers || !["ReplicaSet", "EndpointSlice"].includes(r.kind)),
   );
   const stream = resource?.kind === "Pod" ? resource : null;
-  const container = stream
-    ? text(at(stream.raw, "spec", "containers", "0", "name"))
-    : "";
+  const [selectedContainer, setSelectedContainer] = useState("");
+  const [showPreviousLogs, setShowPreviousLogs] = useState(false);
+  const [logError, setLogError] = useState("");
+  const [logEpoch, setLogEpoch] = useState(0);
+  const containers = stream
+    ? [
+        ...list(at(stream.raw, "spec", "containers")).map((c) => ({
+          name: text(c.name),
+          init: false,
+        })),
+        ...list(at(stream.raw, "spec", "initContainers")).map((c) => ({
+          name: text(c.name),
+          init: true,
+        })),
+      ]
+    : [];
+  const container = containers.some((c) => c.name === selectedContainer)
+    ? selectedContainer
+    : (containers[0]?.name ?? "");
   useEffect(() => {
     setLogs(null);
+    setLogError("");
     if (tab !== "logs" || !stream || !container) return;
     let stopped = false;
     const uid = stream.id;
+    const logScope = {
+      sessionId: lab!.id,
+      generation: lab!.generation,
+      revision: lab!.revision,
+    };
     const read = async () => {
       try {
         const r = await request("/api/lab", {
           method: "POST",
-          body: JSON.stringify({ kind: "logs", uid, container }),
+          body: JSON.stringify({ kind: "logs", uid, container, ...logScope }),
         });
         const data = await r.json();
         if (!stopped) {
-          if (r.ok) setLogs(data.logs);
-          else setError(data.error);
+          if (r.ok) {
+            setLogs(data.logs);
+            setLogError("");
+          } else setLogError(data.error ?? "Log connection failed");
         }
       } catch (e) {
-        if (!stopped) setError((e as Error).message);
+        if (!stopped) setLogError((e as Error).message);
       }
     };
     void read();
@@ -296,10 +704,112 @@ export function LivePractice({
       clearInterval(timer);
       void request("/api/lab", {
         method: "POST",
-        body: JSON.stringify({ kind: "closeLogs", uid, container }),
+        body: JSON.stringify({
+          kind: "closeLogs",
+          uid,
+          container,
+          ...logScope,
+        }),
       }).catch(() => {});
     };
-  }, [tab, stream?.id, container, request, lab?.generation]);
+  }, [
+    tab,
+    stream?.id,
+    container,
+    request,
+    lab?.id,
+    lab?.generation,
+    lab?.revision,
+    logEpoch,
+  ]);
+  const baselineDeployment = lab?.evidence.resources.find(
+    (r) =>
+      r.kind === "Deployment" &&
+      at(r, "metadata", "name") === lab.plan.contract?.deployment &&
+      at(r, "metadata", "namespace") === lab.plan.contract?.namespace,
+  );
+  const draftDeployment = draftParsed.resources.find(
+    (r) =>
+      r.kind === "Deployment" &&
+      r.name === lab?.plan.contract?.deployment &&
+      r.namespace === lab.plan.contract?.namespace,
+  );
+  const baselineContainer = list(
+    at(baselineDeployment, "spec", "template", "spec", "containers"),
+  ).find((c) => c.name === lab?.plan.contract?.container);
+  const draftContainer = list(
+    at(draftDeployment?.raw, "spec", "template", "spec", "containers"),
+  ).find((c) => c.name === lab?.plan.contract?.container);
+  const repairChanges = (["readinessProbe", "livenessProbe"] as const).flatMap(
+    (probe) => {
+      const desired = text(at(baselineContainer, probe, "httpGet", "path")),
+        next = text(at(draftContainer, probe, "httpGet", "path"));
+      return desired && next && desired !== next
+        ? [
+            {
+              field:
+                probe === "readinessProbe"
+                  ? ("readinessPath" as const)
+                  : ("livenessPath" as const),
+              desired,
+              draft: next,
+            },
+          ]
+        : [];
+    },
+  );
+  const learning: LearningContext = {
+    lesson: lab?.incident ?? "healthy",
+    objective:
+      lab?.recipe?.objective ??
+      lessonCopy[lab?.incident ?? "healthy"].objective,
+    hypothesis: progress.hypothesis,
+    prediction: progress.prediction,
+    hintLevel: progress.hintLevel,
+    visibleHints: (
+      lab?.recipe?.hints ?? [...lessonCopy[lab?.incident ?? "healthy"].hints]
+    ).slice(0, progress.hintLevel),
+    solutionRequested: progress.solutionRequested,
+    fieldPath: helpField,
+    repairChanges: dirty.current ? repairChanges : undefined,
+    helpTarget:
+      lab?.phase === "completed"
+        ? "debrief"
+        : dirty.current && repairChanges.length
+          ? "repair-diff"
+          : helpField
+            ? "yaml-field"
+            : selectedEdge
+              ? "relationship"
+              : tab === "yaml"
+                ? "yaml-field"
+                : lab?.checks.some((c) => !c.passed)
+                  ? "failed-check"
+                  : "investigation",
+  };
+  const contextKey = JSON.stringify([
+    lab?.id,
+    lab?.generation,
+    lab?.revision,
+    selected,
+    selectedEdge?.id,
+    learning,
+  ]);
+  useEffect(() => {
+    onContext?.({
+      scope: {
+        labId: lab?.id,
+        labGeneration: lab?.generation,
+        labRevision: lab?.revision,
+        resourceId: selected ?? undefined,
+        relationshipId: selectedEdge?.id,
+        learning,
+      },
+      evidenceKey: contextKey,
+      stale,
+      available: !!lab && lab.phase !== "stopped",
+    });
+  }, [contextKey, stale, lab?.phase, onContext]);
   if (!lab || lab.phase === "stopped")
     return (
       <div className="catalog">
@@ -320,6 +830,17 @@ export function LivePractice({
             </Button>
           </CardContent>
         </Card>
+        {transport.state === "disconnected" && (
+          <p role="status" className="notice">
+            Runtime disconnected: {transport.reason}{" "}
+            <Button
+              variant="outline"
+              onClick={() => setPollEpoch((v) => v + 1)}
+            >
+              Retry connection
+            </Button>
+          </p>
+        )}
         {error && (
           <p role="alert" className="notice">
             {error}
@@ -331,6 +852,48 @@ export function LivePractice({
               <CardTitle>Deployment review</CardTitle>
             </CardHeader>
             <CardContent>
+              {view.plan.capabilities && (
+                <details className="mb-4" open>
+                  <summary className="cursor-pointer">
+                    Application capabilities
+                  </summary>
+                  <dl className="grid grid-cols-2 gap-2 text-sm mt-3">
+                    {Object.entries(view.plan.capabilities).map(
+                      ([name, capability]) => (
+                        <div key={name}>
+                          <dt>
+                            {name === "exerciseEligible"
+                              ? "Exercise eligible"
+                              : name[0].toUpperCase() + name.slice(1)}
+                          </dt>
+                          <dd>
+                            {capability.status}
+                            {capability.reasons.length > 0 && (
+                              <ul className="text-xs text-muted-foreground">
+                                {capability.reasons.map((reason) => (
+                                  <li key={reason}>{reason}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </dd>
+                        </div>
+                      ),
+                    )}
+                  </dl>
+                </details>
+              )}
+              {!!view.plan.requirements?.length && (
+                <details className="mb-4" open>
+                  <summary className="cursor-pointer">
+                    Runtime requirements
+                  </summary>
+                  <ul className="text-sm mt-2">
+                    {view.plan.requirements.map((requirement) => (
+                      <li key={requirement}>{requirement}</li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               <LocalImages
                 project={project}
                 onSaved={() => void action("plan", { project })}
@@ -399,18 +962,99 @@ export function LivePractice({
         )}
       </div>
     );
+  const repairEditor = (
+    <>
+      <div className="lab-editor">
+        <SourceEditor
+          value={draft}
+          onChange={(v) => {
+            dirty.current = true;
+            draftEditVersion.current++;
+            setDraft(v);
+          }}
+          ranges={[]}
+          contextKey={lab.id}
+        />
+      </div>
+      {draftErrors.map((d) => (
+        <p role="alert" key={d.line}>
+          Line {d.line}: {d.message}. Draft retained; previous graph unchanged.
+        </p>
+      ))}
+      <Button
+        disabled={busy || stale || !!draftErrors.length || !dirty.current}
+        onClick={() => action("apply", { source: draft })}
+      >
+        Apply repair
+      </Button>
+    </>
+  );
   return (
     <div className="live-practice">
+      <Dialog
+        open={!!reviewOperation}
+        onOpenChange={(open) => {
+          if (!open) setReviewOperation(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {reviewOperation?.kind === "reset"
+                ? "Review baseline reset"
+                : reviewOperation?.kind === "cleanup"
+                  ? "Clean up owned lab"
+                  : "Review one scheduled execution"}
+            </DialogTitle>
+            <DialogDescription>
+              {reviewOperation?.kind === "run-cronjob"
+                ? `Create one Job from ${reviewOperation.target} in this owned lab. The existing schedule remains unchanged; this can write application data.`
+                : reviewOperation?.kind === "cleanup"
+                  ? "Delete only the verified Waypoint-owned cluster. Its Pods and local persistent-volume data will be removed."
+                  : "Reapply the reviewed baseline and start a new investigation notebook. Unsaved repair edits are discarded after reset succeeds."}
+            </DialogDescription>
+          </DialogHeader>
+          {reviewOperation?.kind === "reset" && (
+            <ul className="space-y-2 text-sm">
+              {(
+                view.resetPreview?.details ?? [
+                  "Restore reviewed manifests. Existing Job execution and PVC data are preserved; this does not erase application data.",
+                ]
+              ).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setReviewOperation(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => {
+                const op = reviewOperation;
+                setReviewOperation(null);
+                if (op)
+                  void action(op.kind, op.target ? { target: op.target } : {});
+              }}
+            >
+              {reviewOperation?.kind === "reset"
+                ? "Confirm reset"
+                : reviewOperation?.kind === "cleanup"
+                  ? "Confirm cleanup"
+                  : "Run once"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="lab-strip">
         <div>
           <strong>
             {lab.incident === "liveness"
               ? "Liveness investigation"
-              : false
-                ? "Gateway HTTP 503 investigation"
-                : lab.incident === "readiness"
-                  ? "Readiness investigation"
-                  : "Local application"}
+              : lab.incident === "readiness"
+                ? "Readiness investigation"
+                : "Local application"}
           </strong>
           <span>
             {lab.phase} {lab.operation ? "· " + lab.operation : ""} ·{" "}
@@ -421,17 +1065,14 @@ export function LivePractice({
           <Button
             variant="outline"
             disabled={busy}
-            onClick={() => {
-              dirty.current = false;
-              action("reset");
-            }}
+            onClick={() => setReviewOperation({ kind: "reset" })}
           >
             Reset baseline
           </Button>
           <Button
             variant="outline"
             disabled={busy}
-            onClick={() => action("cleanup")}
+            onClick={() => setReviewOperation({ kind: "cleanup" })}
           >
             Clean up lab
           </Button>
@@ -451,13 +1092,27 @@ export function LivePractice({
           {error || lab.error}
         </p>
       )}
+      {persistenceError && (
+        <p className="notice" role="status">
+          {persistenceError}
+        </p>
+      )}
       {stale && (
         <p role="status" className="notice">
-          Live evidence is connecting or stale.{" "}
-          {lab.evidence.status
-            .filter((s) => s.state !== "current")
-            .map((s) => `${s.kind}: ${s.error ?? s.state}`)
-            .join(" · ")}
+          {transport.state === "disconnected"
+            ? "Runtime disconnected"
+            : "Evidence connecting or stale"}
+          . Last successful runtime response: {transport.lastSuccess ?? "none"}.
+          Last observation: {lab.evidence.receivedAt ?? "unavailable"}.{" "}
+          {transport.reason}{" "}
+          <Button variant="outline" onClick={() => setPollEpoch((v) => v + 1)}>
+            Retry connection
+          </Button>{" "}
+          {(
+            lab.evidence.connection?.reasons ??
+            evidenceConnection?.reasons ??
+            []
+          ).join(" · ")}
         </p>
       )}
       {lab.phase === "preparing" && (
@@ -465,6 +1120,41 @@ export function LivePractice({
           Preparing the owned cluster and proving a healthy baseline. This can
           take several minutes. Actual failures will appear here.
         </p>
+      )}
+      {!!view.scheduledExecutions?.length && (
+        <Card className="mx-4 my-3">
+          <CardHeader>
+            <CardTitle>Scheduled workloads</CardTitle>
+            <CardDescription>
+              Configuration validity and observed execution are separate.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {view.scheduledExecutions.map((job) => (
+              <div
+                key={job.target}
+                className="my-2 flex flex-wrap items-center gap-3"
+              >
+                <span>
+                  {job.target} · {job.state}
+                </span>
+                <p className="text-sm text-muted-foreground">{job.detail}</p>
+                <Button
+                  variant="outline"
+                  disabled={busy || stale}
+                  onClick={() =>
+                    setReviewOperation({
+                      kind: "run-cronjob",
+                      target: job.target,
+                    })
+                  }
+                >
+                  Review one run
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       )}
       {practice && lab.phase === "ready" && (
         <div className="incident-grid">
@@ -571,45 +1261,48 @@ export function LivePractice({
           </Card>
         </div>
       )}
-      {practice && lab.incident && (
-        <div className="lab-strip">
-          <p>
-            {lab.recipe?.objective ??
-              "Restore required probes, healthy replicas and an HTTP request through the Service."}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setHint((h) => Math.min(h + 1, 3))}
-            >
-              Hint
-            </Button>
-            <Button
-              disabled={busy || stale || dirty.current}
-              onClick={() => action("check")}
-            >
-              Check recovery
-            </Button>
-          </div>
-        </div>
-      )}
-      {practice && hint > 0 && (
-        <p className="p-3 text-muted-foreground">
-          {
-            (lab.recipe
-              ? ["", ...lab.recipe.hints]
-              : [
-                  "",
-                  "Inspect Pod conditions and recent kubelet events. Restart counts alone do not explain their cause.",
-                  false
-                    ? "Compare the gateway upstream, backend Service selector and ready EndpointSlices."
-                    : "Compare the HTTP probe path with application access logs and the immutable healthy baseline.",
-                  false
-                    ? "Restore the backend Service selector. Keep the gateway and required backend replicas."
-                    : "Restore the original working probe path; keep the probe, replicas, image and configuration.",
-                ])[hint]
-          }
-        </p>
+      {practice && (lab.phase === "ready" || !!lab.incident) && (
+        <Accordion
+          type="single"
+          collapsible
+          value={notebookOpen ? "notebook" : ""}
+          onValueChange={(value) => setNotebookOpen(value === "notebook")}
+        >
+          <AccordionItem value="notebook">
+            <AccordionTrigger>
+              {lab.phase === "completed"
+                ? "Recovery debrief"
+                : lab.incident
+                  ? "Investigation notebook"
+                  : "Healthy application guide"}{" "}
+              ·{" "}
+              {lab.recipe?.objective ??
+                lessonCopy[lab.incident ?? "healthy"].objective}
+            </AccordionTrigger>
+            <AccordionContent>
+              <LearningJourney
+                incident={lab.incident}
+                completed={lab.phase === "completed"}
+                progress={progress}
+                onChange={setProgress}
+                baselinePath={
+                  lab.incident === "liveness"
+                    ? lab.plan.contract?.livenessPath
+                    : lab.plan.contract?.path
+                }
+                generatedHints={lab.recipe?.hints}
+                objective={lab.recipe?.objective}
+                onInspect={(tab) => {
+                  setTab(tab);
+                  setMobilePane("inspector");
+                }}
+                onCheck={() => void action("check")}
+                disabled={busy || stale}
+                dirty={dirty.current}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
       {practice && lab.checks.length > 0 && (
         <ul className="lab-checks">
@@ -620,19 +1313,35 @@ export function LivePractice({
                 <summary>Evidence</summary>
                 <pre>{c.detail}</pre>
               </details>
+              {!c.passed && (
+                <Button
+                  variant="link"
+                  disabled={stale || busy}
+                  onClick={() => {
+                    setHelpField(undefined);
+                    setQuestionOpen(true);
+                  }}
+                >
+                  Ask about this failed check
+                </Button>
+              )}
             </li>
           ))}
         </ul>
       )}
-      {practice && lab.phase === "completed" && (
-        <p className="notice pass">
-          Recovery verified in the owned cluster. Required replicas,
-          configuration, ready Service backends and an in-cluster HTTP request
-          passed. Reset restores the healthy baseline before repeating the
-          exercise.
-        </p>
-      )}
       <div className="lab-strip">
+        {revealedFilters && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setKind(revealedFilters.kind);
+              setControllers(revealedFilters.controllers);
+              setRevealedFilters(null);
+            }}
+          >
+            Restore filters
+          </Button>
+        )}
         <Button variant="outline" onClick={() => setControllers((c) => !c)}>
           {controllers
             ? "Collapse controller detail"
@@ -655,36 +1364,78 @@ export function LivePractice({
           Actual lab observations · source import unchanged
         </span>
       </div>
-      <ResizablePanelGroup className="lab-panels" orientation="horizontal">
-        <ResizablePanel defaultSize="18%" minSize="12%">
+      <div
+        className="flex gap-2 px-4 py-2 md:hidden"
+        aria-label="Workspace pane"
+      >
+        <Button
+          variant={mobilePane === "tree" ? "default" : "outline"}
+          onClick={() => setMobilePane("tree")}
+        >
+          Resources
+        </Button>
+        <Button
+          variant={mobilePane === "graph" ? "default" : "outline"}
+          onClick={() => setMobilePane("graph")}
+        >
+          Topology
+        </Button>
+        <Button
+          variant={mobilePane === "inspector" ? "default" : "outline"}
+          onClick={() => setMobilePane("inspector")}
+        >
+          Inspector
+        </Button>
+      </div>
+      <ResizablePanelGroup
+        className="lab-panels"
+        data-mobile-pane={mobilePane}
+        orientation="horizontal"
+      >
+        <ResizablePanel
+          data-pane="tree"
+          className={`${mobilePane === "tree" ? "" : "max-md:!hidden"} max-md:!basis-full max-md:!w-full max-md:!grow`}
+          defaultSize="18%"
+          minSize="12%"
+        >
           <nav className="resource-tree" aria-label="Application resource tree">
             <strong>{project.label}</strong>
-            <details open>
-              <summary>{lab.namespace}</summary>
-              {resources
-                .filter(
-                  (r) =>
-                    !list(at(r.raw, "metadata", "ownerReferences")).some((o) =>
-                      resources.some(
-                        (p) => at(p.raw, "metadata", "uid") === o.uid,
-                      ),
-                    ),
-                )
-                .map((r) => (
-                  <Tree
-                    key={r.id}
-                    resource={r}
-                    resources={resources}
-                    selected={selected}
-                    select={select}
-                    detail={controllers}
-                  />
-                ))}
-            </details>
+            {[...new Set(resources.map((r) => r.namespace ?? "cluster"))]
+              .sort()
+              .map((namespace) => (
+                <details key={namespace} open>
+                  <summary>{namespace}</summary>
+                  {resources
+                    .filter(
+                      (r) =>
+                        (r.namespace ?? "cluster") === namespace &&
+                        !list(at(r.raw, "metadata", "ownerReferences")).some(
+                          (o) => resources.some((p) => p.id === o.uid),
+                        ),
+                    )
+                    .map((r) => (
+                      <Tree
+                        key={r.id}
+                        resource={r}
+                        resources={resources}
+                        selected={selected}
+                        select={select}
+                        detail={controllers}
+                        observation={observation}
+                        stale={stale}
+                      />
+                    ))}
+                </details>
+              ))}
           </nav>
         </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize="49%" minSize="25%">
+        <ResizableHandle className="max-md:hidden" withHandle />
+        <ResizablePanel
+          data-pane="graph"
+          className={`${mobilePane === "graph" ? "" : "max-md:!hidden"} max-md:!basis-full max-md:!w-full max-md:!grow`}
+          defaultSize="49%"
+          minSize="25%"
+        >
           {destination === "Resources" ? (
             <div className="live-resource-list">
               {displayed.map((r) => (
@@ -695,7 +1446,7 @@ export function LivePractice({
                   aria-pressed={selected === r.id}
                   onClick={() => select(r.id)}
                 >
-                  {r.kind} / {r.name}
+                  {r.namespace ?? "cluster"} · {r.kind} / {r.name}
                 </Button>
               ))}
             </div>
@@ -722,17 +1473,7 @@ export function LivePractice({
               ))}
             </div>
           ) : destination === "Manifest files" ? (
-            <div className="lab-editor">
-              <SourceEditor
-                value={draft}
-                onChange={(v) => {
-                  dirty.current = true;
-                  setDraft(v);
-                }}
-                ranges={[]}
-                contextKey={lab.id}
-              />
-            </div>
+            repairEditor
           ) : (
             <ResourceGraph
               resources={displayed}
@@ -743,13 +1484,32 @@ export function LivePractice({
               )}
               selected={selected}
               onSelect={select}
-              onRelationship={() => setTab("relationships")}
+              onRelationship={(id) => {
+                const relationship = analysis.relationships.find(
+                  (e) => e.id === id,
+                );
+                if (!relationship) return;
+                select(relationship.from);
+                setSelectedEdge(relationship);
+                setTab("relationships");
+              }}
               observation={observation}
               stale={stale}
+              staleReason="Last received lab state · stale"
               endpointCoverage={() => !stale}
               initialPositions={positions.current}
               onPositionsChange={(p) => {
                 positions.current = p;
+                const retained = retainedLabDrafts.get(persistenceKey);
+                if (retained) {
+                  retained.positions = p;
+                  try {
+                    localStorage.setItem(
+                      persistenceKey + ":draft",
+                      JSON.stringify(retained),
+                    );
+                  } catch {}
+                }
               }}
               provenance={
                 stale ? "Last received lab state · stale" : "Live lab state"
@@ -757,14 +1517,22 @@ export function LivePractice({
             />
           )}
         </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize="33%" minSize="25%">
+        <ResizableHandle className="max-md:hidden" withHandle />
+        <ResizablePanel
+          data-pane="inspector"
+          className={`${mobilePane === "inspector" ? "" : "max-md:!hidden"} max-md:!basis-full max-md:!w-full max-md:!grow`}
+          defaultSize="33%"
+          minSize="25%"
+        >
           <section className="live-inspector">
             {account.status?.planEnabled && resource && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setQuestionOpen(true)}
+                onClick={() => {
+                  setHelpField(undefined);
+                  setQuestionOpen(true);
+                }}
               >
                 Ask ChatGPT
               </Button>
@@ -773,13 +1541,18 @@ export function LivePractice({
               open={questionOpen}
               onOpenChange={setQuestionOpen}
               title="Ask about this lab resource"
+              retentionKey={sourceDigest}
               evidenceKey={[
                 lab.id,
                 lab.generation,
                 lab.revision,
                 selected,
+                selectedEdge?.id,
+                JSON.stringify(learning),
               ].join(":")}
               scope={{
+                relationshipId: selectedEdge?.id,
+                learning,
                 labId: lab.id,
                 labGeneration: lab.generation,
                 labRevision: lab.revision,
@@ -805,7 +1578,9 @@ export function LivePractice({
             <h2>
               {resource
                 ? `${resource.kind} / ${resource.name}`
-                : "Select a resource"}
+                : selected
+                  ? "Resource unavailable"
+                  : "Select a resource"}
             </h2>
             {selected && !resource && (
               <p role="status">
@@ -825,13 +1600,110 @@ export function LivePractice({
                 {resource && (
                   <>
                     <dl>
+                      <dt>Kind / name</dt>
+                      <dd>
+                        {resource.kind} / {resource.name}
+                      </dd>
                       <dt>UID</dt>
                       <dd>{resource.id}</dd>
                       <dt>Namespace</dt>
                       <dd>{resource.namespace}</dd>
+                      <dt>API version</dt>
+                      <dd>{resource.apiVersion}</dd>
+                      <dt>Age</dt>
+                      <dd>
+                        {resourceAge(resource.raw, lab.evidence.receivedAt)}
+                      </dd>
+                      <dt>Provenance</dt>
+                      <dd>
+                        {list(at(resource.raw, "metadata", "ownerReferences"))
+                          .length
+                          ? "Controller-generated live API resource"
+                          : "Live API resource"}
+                      </dd>
+                      <dt>Owners</dt>
+                      <dd>
+                        {list(
+                          at(resource.raw, "metadata", "ownerReferences"),
+                        ).map((o) => (
+                          <Button
+                            key={text(o.uid)}
+                            variant="link"
+                            onClick={() => {
+                              setRevealedFilters({ kind, controllers });
+                              setKind("all");
+                              setControllers(true);
+                              select(text(o.uid));
+                            }}
+                          >
+                            {text(o.kind)} / {text(o.name)} · {text(o.uid)}
+                          </Button>
+                        ))}
+                      </dd>
+                      <dt>Conditions</dt>
+                      <dd>
+                        {conditionSummary(resource.raw).join("; ") ||
+                          "No conditions reported"}
+                      </dd>
                       <dt>Observation</dt>
                       <dd>{stale ? "Stale / unknown" : "Live"}</dd>
                     </dl>
+                    {list(
+                      at(
+                        resource.raw,
+                        "spec",
+                        ...(resource.kind === "Pod"
+                          ? []
+                          : ["template", "spec"]),
+                        "containers",
+                      ),
+                    ).map((container, index) => (
+                      <div key={text(container.name)} className="my-3 text-sm">
+                        <strong>{text(container.name)}</strong>
+                        {(["readinessProbe", "livenessProbe"] as const).map(
+                          (probe) =>
+                            at(container, probe) ? (
+                              <div key={probe}>
+                                <p>
+                                  {probe}: HTTP path{" "}
+                                  {text(
+                                    at(container, probe, "httpGet", "path"),
+                                  ) || "non-HTTP"}
+                                </p>
+                                <Button
+                                  variant="link"
+                                  disabled={stale || busy}
+                                  onClick={() => {
+                                    setHelpField(
+                                      `spec.${resource.kind === "Pod" ? "" : "template.spec."}containers.${index}.${probe}.httpGet.path`,
+                                    );
+                                    setQuestionOpen(true);
+                                  }}
+                                >
+                                  Ask about this probe field
+                                </Button>
+                              </div>
+                            ) : null,
+                        )}
+                      </div>
+                    ))}
+                    {authored && (
+                      <details>
+                        <summary>Desired / live normalized diff</summary>
+                        <p className="text-xs text-muted-foreground">
+                          API bookkeeping removed; defaults and controller
+                          changes remain visible.
+                        </p>
+                        <pre>
+                          {stringify(
+                            configurationDifferences(
+                              authored.raw,
+                              resource.raw,
+                            ),
+                          )}
+                        </pre>
+                      </details>
+                    )}
                     <details>
                       <summary>Raw status and UID</summary>
                       <p>{resource.id}</p>
@@ -841,37 +1713,26 @@ export function LivePractice({
                 )}
               </TabsContent>
               <TabsContent value="yaml">
-                <Tabs defaultValue="repair">
+                <Tabs
+                  key={
+                    destination === "Manifest files"
+                      ? "observed-file-inspector"
+                      : "repair-inspector"
+                  }
+                  defaultValue={
+                    destination === "Manifest files" ? "observed" : "repair"
+                  }
+                >
                   <TabsList>
-                    <TabsTrigger value="repair">Lab repair</TabsTrigger>
+                    {destination !== "Manifest files" && (
+                      <TabsTrigger value="repair">Lab repair</TabsTrigger>
+                    )}
                     <TabsTrigger value="observed">Observed YAML</TabsTrigger>
                     <TabsTrigger value="baseline">Healthy baseline</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="repair">
-                    <div className="lab-editor">
-                      <SourceEditor
-                        value={draft}
-                        onChange={(v) => {
-                          dirty.current = true;
-                          setDraft(v);
-                        }}
-                        ranges={[]}
-                        contextKey={lab.id}
-                      />
-                    </div>
-                    {draftErrors.map((d) => (
-                      <p role="alert" key={d.line}>
-                        Line {d.line}: {d.message}. Draft retained; previous
-                        graph unchanged.
-                      </p>
-                    ))}
-                    <Button
-                      disabled={busy || !!draftErrors.length || !dirty.current}
-                      onClick={() => action("apply", { source: draft })}
-                    >
-                      Apply repair
-                    </Button>
-                  </TabsContent>
+                  {destination !== "Manifest files" && (
+                    <TabsContent value="repair">{repairEditor}</TabsContent>
+                  )}
                   <TabsContent value="observed">
                     <div className="lab-editor">
                       <SourceEditor
@@ -937,9 +1798,52 @@ export function LivePractice({
                     <p className="text-muted-foreground">
                       Selected container only · bounded recent window
                     </p>
+                    <Select
+                      value={container}
+                      onValueChange={(v) => {
+                        setSelectedContainer(v);
+                        setShowPreviousLogs(false);
+                      }}
+                    >
+                      <SelectTrigger aria-label="Lab log container">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {containers.map((c) => (
+                          <SelectItem key={c.name} value={c.name}>
+                            {c.name}
+                            {c.init ? " (init)" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPreviousLogs((v) => !v)}
+                    >
+                      {showPreviousLogs
+                        ? "Show current logs"
+                        : "Show previous container logs"}
+                    </Button>
+                    {logError && (
+                      <p role="alert">
+                        {logError}{" "}
+                        <Button
+                          variant="outline"
+                          onClick={() => setLogEpoch((v) => v + 1)}
+                        >
+                          Retry logs
+                        </Button>
+                      </p>
+                    )}
                     {logs ? (
                       <>
-                        <pre className="live-log">{logs.lines.join("\n")}</pre>
+                        <pre className="live-log">
+                          {showPreviousLogs
+                            ? (logs.previous ??
+                              "Previous container logs unavailable in this window.")
+                            : logs.lines.join("\n")}
+                        </pre>
                         <p>
                           {logs.state}
                           {logs.truncated ? " · truncated" : ""} {logs.error}
@@ -949,7 +1853,7 @@ export function LivePractice({
                             {g}
                           </p>
                         ))}
-                        {logs.previous && (
+                        {!showPreviousLogs && logs.previous && (
                           <details>
                             <summary>Previous container logs</summary>
                             <pre>{logs.previous}</pre>
@@ -957,7 +1861,11 @@ export function LivePractice({
                         )}
                       </>
                     ) : (
-                      <p>Connecting log stream…</p>
+                      <p>
+                        {logError
+                          ? "Log stream unavailable."
+                          : "Connecting log stream…"}
+                      </p>
                     )}
                   </>
                 ) : (
@@ -969,7 +1877,11 @@ export function LivePractice({
               </TabsContent>
               <TabsContent value="relationships">
                 {analysis.relationships
-                  .filter((e) => e.from === selected || e.to === selected)
+                  .filter((e) =>
+                    selectedEdge
+                      ? e.id === selectedEdge.id
+                      : e.from === selected || e.to === selected,
+                  )
                   .map((e) => (
                     <article key={e.id} className="live-event">
                       <strong>{e.title}</strong>
@@ -1009,13 +1921,20 @@ function Tree({
   selected,
   select,
   detail,
+  observation,
+  stale,
 }: {
   resource: Resource;
   resources: Resource[];
   selected: string | null;
   select: (id: string) => void;
   detail: boolean;
+  observation: Observation | null;
+  stale: boolean;
 }) {
+  const status = stale
+    ? "Stale / unknown"
+    : resourcePresentation(resource, observation, true).label;
   const children = resources.filter((r) =>
     list(at(r.raw, "metadata", "ownerReferences")).some(
       (o) => o.uid === resource.id,
@@ -1026,10 +1945,17 @@ function Tree({
       <Button
         variant="ghost"
         className="tree-resource"
+        aria-label={`${resource.namespace ?? "cluster"} · ${resource.kind} / ${resource.name}`}
+        title={`UID ${resource.id} · ${status} · ${conditionSummary(resource.raw).join("; ")} · ${resourceAge(resource.raw, observation?.capturedAt ?? null)} · observed API resource`}
         aria-pressed={selected === resource.id}
         onClick={() => select(resource.id)}
       >
-        {resource.kind} / {resource.name}
+        <span className="min-w-0 block truncate">
+          {resource.kind} / {resource.name}
+        </span>
+        <small className="min-w-0 block truncate text-muted-foreground">
+          {resource.namespace ?? "cluster"} · {status}
+        </small>
       </Button>
       {(detail || resource.kind === "Deployment") &&
         children.map((c) =>
@@ -1041,6 +1967,8 @@ function Tree({
                 selected={selected}
                 select={select}
                 detail={detail}
+                observation={observation}
+                stale={stale}
               />
             </div>
           ) : (

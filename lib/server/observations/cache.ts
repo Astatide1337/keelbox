@@ -1,3 +1,5 @@
+import { observationFreshness } from "../../domain/freshness";
+export { observationFreshness } from "../../domain/freshness";
 import { request, Agent } from "node:https";
 import type { IncomingMessage } from "node:http";
 import { at, object, text, type ObjectMap } from "../../domain/types";
@@ -179,11 +181,13 @@ export class LiveCache {
           status.resourceVersion = text(
             at(data, "metadata", "resourceVersion"),
           );
+          status.state = "current";
+          status.receivedAt = new Date().toISOString();
+          delete status.error;
         }
-        status.state = "current";
-        delete status.error;
-        status.receivedAt = new Date().toISOString();
-        failures = 0;
+        // A reconnect attempt is not a successful observation. Retain the
+        // last confirmed receipt time and retry count until data is received.
+        status.state = "connecting";
         stream = await this.response(
           `${base}?watch=true&allowWatchBookmarks=true&timeoutSeconds=45&resourceVersion=${encodeURIComponent(status.resourceVersion)}`,
         );
@@ -194,6 +198,10 @@ export class LiveCache {
         }
         if (stream.statusCode !== 200)
           throw Error(`Watch HTTP ${stream.statusCode}`);
+        status.state = "current";
+        delete status.error;
+        const openedAt = Date.now();
+        let receivedFrame = false;
         let pending = "";
         for await (const bytes of stream) {
           if (this.stopped) break;
@@ -212,6 +220,18 @@ export class LiveCache {
               if (value.code === 410) status.resourceVersion = "";
               throw Error(`Watch error ${value.code ?? "unknown"}`);
             }
+            if (
+              !["ADDED", "MODIFIED", "DELETED", "BOOKMARK"].includes(
+                text(event.type),
+              ) ||
+              !text(at(value, "metadata", "resourceVersion")) ||
+              (event.type !== "BOOKMARK" && !uid)
+            )
+              throw Error(
+                "Watch record lacks a supported type, UID or resourceVersion.",
+              );
+            receivedFrame = true;
+            failures = 0;
             const rv = text(at(value, "metadata", "resourceVersion"));
             if (
               event.type !== "BOOKMARK" &&
@@ -271,6 +291,17 @@ export class LiveCache {
             status.state = "current";
           }
         }
+        if (!this.stopped) {
+          if (!receivedFrame && Date.now() - openedAt < 1000)
+            throw Error("Watch closed before receiving data; reconnecting.");
+          // Quiet watches need a bounded confirming LIST, rather than an
+          // invented heartbeat timestamp on every new HTTP connection.
+          if (
+            !status.receivedAt ||
+            Date.now() - Date.parse(status.receivedAt) >= 45000
+          )
+            status.resourceVersion = "";
+        }
       } catch (e) {
         if (this.stopped) break;
         status.state = String(e).includes("403") ? "denied" : "stale";
@@ -295,6 +326,7 @@ export class LiveCache {
         .flatMap(([, m]) => [...m.values()]),
       events: [...(this.maps.get("Event")?.values() ?? [])],
       status: structuredClone(this.statuses),
+      connection: observationFreshness(this.statuses),
       receivedAt:
         this.statuses
           .map((s) => s.receivedAt)
@@ -306,7 +338,7 @@ export class LiveCache {
   fresh() {
     return (
       this.statuses.length === Object.keys(routes).length &&
-      this.statuses.every((s) => s.state === "current")
+      observationFreshness(this.statuses).state === "current"
     );
   }
   async follow(uid: string, container: string) {
@@ -316,10 +348,10 @@ export class LiveCache {
         "Selected Pod UID is no longer present. Select its replacement.",
       );
     if (
-      !Array.isArray(at(pod, "spec", "containers")) ||
-      !(at(pod, "spec", "containers") as ObjectMap[]).some(
-        (c) => c.name === container,
-      )
+      ![
+        ...((at(pod, "spec", "containers") as ObjectMap[]) ?? []),
+        ...((at(pod, "spec", "initContainers") as ObjectMap[]) ?? []),
+      ].some((c) => c.name === container)
     )
       throw Error("Container is not present on the selected Pod.");
     const key = uid + ":" + container,
@@ -336,11 +368,11 @@ export class LiveCache {
       }
       throw Error("Pod UID changed; select its replacement.");
     }
-    const state = (
-      Array.isArray(at(current, "status", "containerStatuses"))
-        ? (at(current, "status", "containerStatuses") as ObjectMap[])
-        : []
-    ).find((c) => c.name === container);
+    const state = [
+      ...((at(current, "status", "containerStatuses") as ObjectMap[]) ?? []),
+      ...((at(current, "status", "initContainerStatuses") as ObjectMap[]) ??
+        []),
+    ].find((c) => c.name === container);
     if (
       existing?.state === "following" &&
       existing.containerId === text(state?.containerID)
@@ -446,8 +478,11 @@ export class LiveCache {
       this.logConnections.set(key, r);
       if (r.statusCode !== 200) throw Error(`Log HTTP ${r.statusCode}`);
       const current = await this.json(podPath);
-      const statuses =
-        (at(current, "status", "containerStatuses") as ObjectMap[]) ?? [];
+      const statuses = [
+        ...((at(current, "status", "containerStatuses") as ObjectMap[]) ?? []),
+        ...((at(current, "status", "initContainerStatuses") as ObjectMap[]) ??
+          []),
+      ];
       if (
         at(current, "metadata", "uid") !== b.uid ||
         text(statuses.find((c) => c.name === b.container)?.containerID) !==

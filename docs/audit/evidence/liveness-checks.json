@@ -1,0 +1,803 @@
+{
+  "sessionId": "20b148b0-c75e-4de3-8d73-d8a2a2eb76d7",
+  "phase": "completed",
+  "generation": 3,
+  "revision": 6,
+  "incidentObservedAt": "2026-10-11T05:35:41.381Z",
+  "checks": [
+    {
+      "name": "ConfigMap/web-config configuration",
+      "passed": true,
+      "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+    },
+    {
+      "name": "Service/web configuration",
+      "passed": true,
+      "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+    },
+    {
+      "name": "ConfigMap/gateway-config configuration",
+      "passed": true,
+      "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+    },
+    {
+      "name": "Service/gateway configuration",
+      "passed": true,
+      "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+    },
+    {
+      "name": "web replicas",
+      "passed": true,
+      "detail": "Intended nonzero replicas must be ready and current."
+    },
+    {
+      "name": "web template",
+      "passed": true,
+      "detail": "Container configuration changed outside the repair contract."
+    },
+    {
+      "name": "gateway replicas",
+      "passed": true,
+      "detail": "Intended nonzero replicas must be ready and current."
+    },
+    {
+      "name": "gateway template",
+      "passed": true,
+      "detail": "Container configuration changed outside the repair contract."
+    },
+    {
+      "name": "HTTP verification scope",
+      "passed": true,
+      "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+    },
+    {
+      "name": "waypoint-lab-a6e188877143/web ready Service backends",
+      "passed": true,
+      "detail": "Ready EndpointSlices must target every intended ready replica."
+    },
+    {
+      "name": "in-cluster Service HTTP waypoint-lab-a6e188877143/web:80/healthz",
+      "passed": true,
+      "detail": "HTTP request through Service waypoint-lab-a6e188877143/web:80/healthz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+    },
+    {
+      "name": "stable restart window",
+      "passed": true,
+      "detail": "No new container restarts across the 15-second recovery window."
+    },
+    {
+      "name": "waypoint-lab-a6e188877143/gateway ready Service backends",
+      "passed": true,
+      "detail": "Ready EndpointSlices must target every intended ready replica."
+    },
+    {
+      "name": "in-cluster Service HTTP waypoint-lab-a6e188877143/gateway:80/healthz",
+      "passed": true,
+      "detail": "HTTP request through Service waypoint-lab-a6e188877143/gateway:80/healthz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+    }
+  ],
+  "connection": {
+    "state": "current",
+    "lastObservation": "2026-10-11T05:36:10.832Z",
+    "reasons": []
+  },
+  "resources": [
+    {
+      "kind": "Pod",
+      "metadata": {
+        "name": "gateway-6f5d4c88f6-zrfzh",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "05e1fcec-95d7-46d6-a503-830de7e6a82b",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "gateway-6f5d4c88f6",
+            "uid": "70b6039a-9847-4f6f-83c2-81adad4b63d5",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "observedGeneration": 1,
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "PodReadyToStartContainers",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:31:39Z"
+          },
+          {
+            "type": "Initialized",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:31:37Z"
+          },
+          {
+            "type": "Ready",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:31:42Z"
+          },
+          {
+            "type": "ContainersReady",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:31:42Z"
+          },
+          {
+            "type": "PodScheduled",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:31:36Z"
+          }
+        ],
+        "hostIP": "192.168.58.2",
+        "hostIPs": [
+          {
+            "ip": "192.168.58.2"
+          }
+        ],
+        "podIP": "10.244.0.5",
+        "podIPs": [
+          {
+            "ip": "10.244.0.5"
+          }
+        ],
+        "startTime": "2026-10-11T05:31:37Z",
+        "containerStatuses": [
+          {
+            "name": "gateway",
+            "state": {
+              "running": {
+                "startedAt": "2026-10-11T05:31:40Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "docker.io/library/nginx:1.28-alpine",
+            "imageID": "sha256:dc73b49f5124cf2ee538dfbdfbd121f0b4ccdcb20fea30f3a81bd477c02e2bb5",
+            "containerID": "containerd://c3598098d9d4a83938bde464f9966a7e77b49bb7e78676b9e0035a45b15a67eb",
+            "started": true,
+            "allocatedResources": {
+              "cpu": "50m",
+              "memory": "32Mi"
+            },
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "50m",
+                "memory": "32Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/etc/nginx/conf.d",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              },
+              {
+                "name": "kube-api-access-fxqnw",
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ],
+            "user": {
+              "linux": {
+                "uid": 0,
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  6,
+                  10,
+                  11,
+                  20,
+                  26,
+                  27
+                ]
+              }
+            }
+          }
+        ],
+        "qosClass": "Burstable",
+        "allocatedResources": {
+          "cpu": "50m",
+          "memory": "32Mi"
+        },
+        "resources": {
+          "limits": {
+            "cpu": "250m",
+            "memory": "128Mi"
+          },
+          "requests": {
+            "cpu": "28m",
+            "memory": "32Mi"
+          }
+        }
+      }
+    },
+    {
+      "kind": "Pod",
+      "metadata": {
+        "name": "web-76d58b864-rtp5l",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "373e3501-e2f6-4ca9-8d81-cdc3cd272c71",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "web-76d58b864",
+            "uid": "6f722018-a237-452e-a10d-6e357d61fec3",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "observedGeneration": 1,
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "PodReadyToStartContainers",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:47Z"
+          },
+          {
+            "type": "Initialized",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:46Z"
+          },
+          {
+            "type": "Ready",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:48Z"
+          },
+          {
+            "type": "ContainersReady",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:48Z"
+          },
+          {
+            "type": "PodScheduled",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:46Z"
+          }
+        ],
+        "hostIP": "192.168.58.2",
+        "hostIPs": [
+          {
+            "ip": "192.168.58.2"
+          }
+        ],
+        "podIP": "10.244.0.28",
+        "podIPs": [
+          {
+            "ip": "10.244.0.28"
+          }
+        ],
+        "startTime": "2026-10-11T05:35:46Z",
+        "containerStatuses": [
+          {
+            "name": "web",
+            "state": {
+              "running": {
+                "startedAt": "2026-10-11T05:35:47Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "docker.io/library/nginx:1.28-alpine",
+            "imageID": "sha256:dc73b49f5124cf2ee538dfbdfbd121f0b4ccdcb20fea30f3a81bd477c02e2bb5",
+            "containerID": "containerd://ae42a40f8e9576a673204250709104a742b08221e5859fba9861178fe37945ac",
+            "started": true,
+            "allocatedResources": {
+              "cpu": "50m",
+              "memory": "32Mi"
+            },
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "50m",
+                "memory": "32Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/etc/nginx/conf.d",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              },
+              {
+                "name": "kube-api-access-86s69",
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ],
+            "user": {
+              "linux": {
+                "uid": 0,
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  6,
+                  10,
+                  11,
+                  20,
+                  26,
+                  27
+                ]
+              }
+            }
+          }
+        ],
+        "qosClass": "Burstable",
+        "allocatedResources": {
+          "cpu": "50m",
+          "memory": "32Mi"
+        },
+        "resources": {
+          "limits": {
+            "cpu": "250m",
+            "memory": "128Mi"
+          },
+          "requests": {
+            "cpu": "28m",
+            "memory": "32Mi"
+          }
+        }
+      }
+    },
+    {
+      "kind": "Pod",
+      "metadata": {
+        "name": "web-76d58b864-cgm48",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "b229d2f8-5d5d-4064-8f4b-d7f0a93e753b",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "ReplicaSet",
+            "name": "web-76d58b864",
+            "uid": "6f722018-a237-452e-a10d-6e357d61fec3",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "observedGeneration": 1,
+        "phase": "Running",
+        "conditions": [
+          {
+            "type": "PodReadyToStartContainers",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:47Z"
+          },
+          {
+            "type": "Initialized",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:46Z"
+          },
+          {
+            "type": "Ready",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:48Z"
+          },
+          {
+            "type": "ContainersReady",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:48Z"
+          },
+          {
+            "type": "PodScheduled",
+            "observedGeneration": 1,
+            "status": "True",
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-10-11T05:35:46Z"
+          }
+        ],
+        "hostIP": "192.168.58.2",
+        "hostIPs": [
+          {
+            "ip": "192.168.58.2"
+          }
+        ],
+        "podIP": "10.244.0.29",
+        "podIPs": [
+          {
+            "ip": "10.244.0.29"
+          }
+        ],
+        "startTime": "2026-10-11T05:35:46Z",
+        "containerStatuses": [
+          {
+            "name": "web",
+            "state": {
+              "running": {
+                "startedAt": "2026-10-11T05:35:47Z"
+              }
+            },
+            "lastState": {},
+            "ready": true,
+            "restartCount": 0,
+            "image": "docker.io/library/nginx:1.28-alpine",
+            "imageID": "sha256:dc73b49f5124cf2ee538dfbdfbd121f0b4ccdcb20fea30f3a81bd477c02e2bb5",
+            "containerID": "containerd://54ce9c5e6eac03d3ed47eefaeb5e36ca2277be64f8570f7b4818ed10abf317b1",
+            "started": true,
+            "allocatedResources": {
+              "cpu": "50m",
+              "memory": "32Mi"
+            },
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "128Mi"
+              },
+              "requests": {
+                "cpu": "50m",
+                "memory": "32Mi"
+              }
+            },
+            "volumeMounts": [
+              {
+                "name": "config",
+                "mountPath": "/etc/nginx/conf.d",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              },
+              {
+                "name": "kube-api-access-8nf47",
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ],
+            "user": {
+              "linux": {
+                "uid": 0,
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  1,
+                  2,
+                  3,
+                  4,
+                  6,
+                  10,
+                  11,
+                  20,
+                  26,
+                  27
+                ]
+              }
+            }
+          }
+        ],
+        "qosClass": "Burstable",
+        "allocatedResources": {
+          "cpu": "50m",
+          "memory": "32Mi"
+        },
+        "resources": {
+          "limits": {
+            "cpu": "250m",
+            "memory": "128Mi"
+          },
+          "requests": {
+            "cpu": "28m",
+            "memory": "32Mi"
+          }
+        }
+      }
+    },
+    {
+      "kind": "Service",
+      "metadata": {
+        "name": "gateway",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "78020bb6-a97f-4992-9620-2be93b1fdb17"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "kind": "Service",
+      "metadata": {
+        "name": "web",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "95d0e40f-557b-4d91-97dd-c234e717182c"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "gateway-config",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "61ce430e-3ea3-4468-a3fe-8d8aea90c69d"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "kube-root-ca.crt",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "0c0a87ba-25c6-40b6-8329-db3f5ad0b518"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "waypoint-ownership",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "ae349ff2-e6ae-4f4d-8853-73d2d9650c15"
+      }
+    },
+    {
+      "kind": "ConfigMap",
+      "metadata": {
+        "name": "web-config",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "40074dcd-938d-4586-a779-0e5ab068dbc3"
+      }
+    },
+    {
+      "kind": "ServiceAccount",
+      "metadata": {
+        "name": "default",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "b259fdff-05fd-4b23-b54b-642ee31b7cfd"
+      }
+    },
+    {
+      "kind": "Deployment",
+      "metadata": {
+        "name": "gateway",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "60584b3f-ba6a-4b13-9145-dfa47c44f951"
+      },
+      "status": {
+        "observedGeneration": 1,
+        "replicas": 1,
+        "updatedReplicas": 1,
+        "readyReplicas": 1,
+        "availableReplicas": 1,
+        "terminatingReplicas": 0,
+        "conditions": [
+          {
+            "type": "Available",
+            "status": "True",
+            "lastUpdateTime": "2026-10-11T05:31:42Z",
+            "lastTransitionTime": "2026-10-11T05:31:42Z",
+            "reason": "MinimumReplicasAvailable",
+            "message": "Deployment has minimum availability."
+          },
+          {
+            "type": "Progressing",
+            "status": "True",
+            "lastUpdateTime": "2026-10-11T05:31:42Z",
+            "lastTransitionTime": "2026-10-11T05:31:19Z",
+            "reason": "NewReplicaSetAvailable",
+            "message": "ReplicaSet \"gateway-6f5d4c88f6\" has successfully progressed."
+          }
+        ]
+      }
+    },
+    {
+      "kind": "Deployment",
+      "metadata": {
+        "name": "web",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297"
+      },
+      "status": {
+        "observedGeneration": 5,
+        "replicas": 2,
+        "updatedReplicas": 2,
+        "readyReplicas": 2,
+        "availableReplicas": 2,
+        "terminatingReplicas": 0,
+        "conditions": [
+          {
+            "type": "Progressing",
+            "status": "True",
+            "lastUpdateTime": "2026-10-11T05:35:30Z",
+            "lastTransitionTime": "2026-10-11T05:31:19Z",
+            "reason": "NewReplicaSetAvailable",
+            "message": "ReplicaSet \"web-6f76469ccb\" has successfully progressed."
+          },
+          {
+            "type": "Available",
+            "status": "True",
+            "lastUpdateTime": "2026-10-11T05:35:48Z",
+            "lastTransitionTime": "2026-10-11T05:35:48Z",
+            "reason": "MinimumReplicasAvailable",
+            "message": "Deployment has minimum availability."
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ReplicaSet",
+      "metadata": {
+        "name": "gateway-6f5d4c88f6",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "70b6039a-9847-4f6f-83c2-81adad4b63d5",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "name": "gateway",
+            "uid": "60584b3f-ba6a-4b13-9145-dfa47c44f951",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "replicas": 1,
+        "fullyLabeledReplicas": 1,
+        "readyReplicas": 1,
+        "availableReplicas": 1,
+        "terminatingReplicas": 0,
+        "observedGeneration": 1
+      }
+    },
+    {
+      "kind": "ReplicaSet",
+      "metadata": {
+        "name": "web-76d58b864",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "6f722018-a237-452e-a10d-6e357d61fec3",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "name": "web",
+            "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "replicas": 2,
+        "fullyLabeledReplicas": 2,
+        "readyReplicas": 2,
+        "availableReplicas": 2,
+        "terminatingReplicas": 0,
+        "observedGeneration": 5
+      }
+    },
+    {
+      "kind": "ReplicaSet",
+      "metadata": {
+        "name": "web-7bc4ff867b",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "name": "web",
+            "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "replicas": 0,
+        "terminatingReplicas": 0,
+        "observedGeneration": 2
+      }
+    },
+    {
+      "kind": "ReplicaSet",
+      "metadata": {
+        "name": "web-6f76469ccb",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "263811ba-3fc5-4120-b22a-dcdefc2b137f",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "name": "web",
+            "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      },
+      "status": {
+        "replicas": 0,
+        "terminatingReplicas": 0,
+        "observedGeneration": 2
+      }
+    },
+    {
+      "kind": "EndpointSlice",
+      "metadata": {
+        "name": "gateway-8p8l5",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "2a7c07f8-765e-4fcc-a2df-6bec8d6d708b",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": "gateway",
+            "uid": "78020bb6-a97f-4992-9620-2be93b1fdb17",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      }
+    },
+    {
+      "kind": "EndpointSlice",
+      "metadata": {
+        "name": "web-w5lsb",
+        "namespace": "waypoint-lab-a6e188877143",
+        "uid": "4ca96314-ea77-4aed-abdc-5942e0fadc20",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": "web",
+            "uid": "95d0e40f-557b-4d91-97dd-c234e717182c",
+            "controller": true,
+            "blockOwnerDeletion": true
+          }
+        ]
+      }
+    }
+  ]
+}

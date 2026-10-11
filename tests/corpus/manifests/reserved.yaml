@@ -1,0 +1,4 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: waypoint-ownership, namespace: demo}
+data: {owner: fake}

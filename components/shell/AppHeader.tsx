@@ -6,6 +6,7 @@ import {
   Settings2,
   Upload,
   ChevronsRight,
+  UserRound,
 } from "lucide-react";
 import type { RefObject } from "react";
 import { useAccount } from "@/components/auth/AccountProvider";
@@ -31,6 +32,9 @@ export function AppHeader({
   onAsk,
   onMenu,
   navigationTrigger,
+  recentProjects = [],
+  onProject,
+  labAvailable = true,
 }: {
   source: Snapshot;
   environment?: "source" | "lab";
@@ -43,6 +47,9 @@ export function AppHeader({
   onAsk?: () => void;
   onMenu: () => void;
   navigationTrigger: RefObject<HTMLButtonElement | null>;
+  recentProjects?: Snapshot[];
+  onProject?: (project: Snapshot) => void;
+  labAvailable?: boolean;
 }) {
   const { theme, setTheme } = useTheme();
   const account = useAccount();
@@ -76,7 +83,7 @@ export function AppHeader({
       </Button>
       <div className="brand">
         <ChevronsRight aria-hidden="true" />
-        <strong>Waypoint</strong>
+        <strong className="sr-only sm:not-sr-only">Waypoint</strong>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -89,10 +96,20 @@ export function AppHeader({
         <DropdownMenuContent>
           <DropdownMenuLabel>Selected project</DropdownMenuLabel>
           <DropdownMenuItem disabled>{source.label}</DropdownMenuItem>
+          {recentProjects
+            .filter((p) => p.id !== source.id)
+            .map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                onSelect={() => onProject?.(project)}
+              >
+                {project.label}
+              </DropdownMenuItem>
+            ))}
           {account.status?.enabled && (
             <DropdownMenuItem onSelect={onAsk}>
-              {environment === "lab"
-                ? "Ask about imported source"
+              {environment === "lab" && labAvailable
+                ? "Ask about this lab"
                 : "Ask about this project"}
             </DropdownMenuItem>
           )}
@@ -106,7 +123,12 @@ export function AppHeader({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
-              {environment === "lab" ? "Local lab" : origin}
+              <span className="hidden sm:inline">
+                {environment === "lab" ? "Local lab" : origin}
+              </span>
+              <span className="sm:hidden">
+                {environment === "lab" ? "Lab" : "Source"}
+              </span>
               <ChevronDown />
             </Button>
           </DropdownMenuTrigger>
@@ -139,7 +161,10 @@ export function AppHeader({
             onClick={account.open}
             aria-label="Open account"
           >
-            {account.status.profile ? "Account" : "Sign in"}
+            <UserRound className="sm:hidden" aria-hidden="true" />
+            <span className="hidden sm:inline">
+              {account.status.profile ? "Account" : "Sign in"}
+            </span>
           </Button>
         )}
         <Button

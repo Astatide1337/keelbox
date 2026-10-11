@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "normalKubeconfigBytesUnchanged": true,
+  "normalContextUnchanged": true,
+  "baselineContainers": 12,
+  "baselineContainerIdentitiesPreserved": true,
+  "helloWorldIdentityPreserved": true,
+  "matrixOwnedProfilesRemaining": [],
+  "sourceClusterRequests": "none; only local config hash/current-context read",
+  "imageBuilds": false,
+  "allWaypointDriverContainersRemaining": []
+}

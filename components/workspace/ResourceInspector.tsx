@@ -30,6 +30,11 @@ import {
 } from "@/lib/domain/snapshot";
 import type { Exercise } from "@/lib/practice/types";
 import { incidents } from "@/lib/practice/scenarios/catalog";
+import {
+  configurationDifferences,
+  resourceAge,
+  conditionSummary,
+} from "@/lib/ui/inspection";
 export function ResourceInspector({
   resource,
   source,
@@ -47,6 +52,10 @@ export function ResourceInspector({
   editorContexts,
   onClose,
   focusRelationship,
+  draftDirty,
+  onSave,
+  onRevert,
+  onExportDraft,
 }: {
   resource: Resource;
   source: Snapshot;
@@ -63,6 +72,10 @@ export function ResourceInspector({
   resources: Resource[];
   onClose?: () => void;
   focusRelationship?: string | null;
+  draftDirty?: boolean;
+  onSave?: () => void;
+  onRevert?: () => void;
+  onExportDraft?: () => void;
   editorContexts?: Map<string, EditorContext>;
 }) {
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -204,13 +217,86 @@ export function ResourceInspector({
       )}
       <Tabs value={tab} onValueChange={onTab}>
         <TabsList className="inspector-tabs">
-          {["Overview", "YAML", "Events", "Logs"].map((t) => (
-            <TabsTrigger key={t} value={t}>
-              {t}
-            </TabsTrigger>
-          ))}
+          {["Overview", "YAML", "Events", "Logs", "Relationships", "Diff"].map(
+            (t) => (
+              <TabsTrigger key={t} value={t}>
+                {t}
+              </TabsTrigger>
+            ),
+          )}
         </TabsList>
         <TabsContent value="Overview" className="pane-padding">
+          <dl className="facts">
+            <dt>UID</dt>
+            <dd className="break-all">{uid || "Not captured"}</dd>
+            <dt>Age</dt>
+            <dd>{resourceAge(displayed, source.captureEndedAt)}</dd>
+            <dt>Provenance</dt>
+            <dd>{origin}</dd>
+            <dt>Observed</dt>
+            <dd>{source.captureEndedAt || "Unavailable"}</dd>
+          </dl>
+          {!!source.renderProvenance?.length && (
+            <details className="mt-3">
+              <summary className="cursor-pointer">Render provenance</summary>
+              {source.renderProvenance.map((proof, i) => (
+                <dl key={i} className="facts text-xs">
+                  <dt>Input</dt>
+                  <dd>
+                    {proof.repository ?? "Local"} / {proof.path}{" "}
+                    {proof.ref ?? ""}
+                  </dd>
+                  <dt>Renderer</dt>
+                  <dd>
+                    {proof.renderer} {proof.version}
+                  </dd>
+                  <dt>Options</dt>
+                  <dd>
+                    Release {proof.release ?? "—"} · namespace{" "}
+                    {proof.namespace ?? "—"} · Kubernetes{" "}
+                    {proof.kubernetesVersion ?? "default capabilities"}
+                  </dd>
+                  {proof.values.map((v, i) => (
+                    <div key={i} className="col-span-2 break-all">
+                      Values {i + 1}: {v.path} · SHA256 {v.sha256}
+                    </div>
+                  ))}
+                  <dt>Templates</dt>
+                  <dd>{proof.sourceMappings.join(", ")}</dd>
+                </dl>
+              ))}
+            </details>
+          )}
+          {conditionSummary(displayed).map((c) => (
+            <p key={c} className="text-sm">
+              {c}
+            </p>
+          ))}
+          {list(
+            at(displayed ?? resource.raw, "metadata", "ownerReferences"),
+          ).map((o) => {
+            const target = resources.find(
+              (r) =>
+                at(capturedResource(source, r) ?? r.raw, "metadata", "uid") ===
+                o.uid,
+            );
+            return (
+              <div key={String(o.uid)} className="text-sm">
+                Owner {text(o.kind)} / {text(o.name)}{" "}
+                {target ? (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => onSelect(target.id)}
+                  >
+                    Inspect owner
+                  </Button>
+                ) : (
+                  " · not captured"
+                )}
+              </div>
+            );
+          })}
           {resource.kind === "Pod" && eventData.length > 0 && (
             <Card className="evidence-card">
               <CardHeader>
@@ -329,7 +415,9 @@ export function ResourceInspector({
                               )
                               .flatMap((r) => list(r.endpoints))
                               .filter(
-                                (e) => at(e, "conditions", "ready") === true,
+                                (e) =>
+                                  at(e, "conditions", "ready") === true &&
+                                  at(e, "conditions", "terminating") !== true,
                               ).length,
                           )
                         : "Unknown · EndpointSlices unavailable"}
@@ -381,6 +469,31 @@ export function ResourceInspector({
           />
         </TabsContent>
         <TabsContent value="YAML" className="yaml-pane">
+          {file && onSave && (
+            <div className="flex gap-2 p-2 flex-wrap items-center">
+              <span className="text-xs">
+                {draftDirty ? "Unsaved draft" : "Saved draft"}
+              </span>
+              <Button
+                size="sm"
+                onClick={onSave}
+                disabled={!draftDirty || !!diagnostics.length}
+              >
+                Save draft
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onRevert}
+                disabled={!draftDirty}
+              >
+                Revert
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onExportDraft}>
+                Export draft
+              </Button>
+            </div>
+          )}
           <div className="yaml-label">
             {file?.name ??
               `Captured API object / ${resource.kind}/${resource.name}`}
@@ -443,6 +556,50 @@ export function ResourceInspector({
                 ? "Local analysis draft. Captured observations and source import are unchanged."
                 : "No original authored file is available."}
           </div>
+        </TabsContent>
+        <TabsContent value="Relationships" className="pane-padding">
+          <RelationshipEvidence
+            relationships={relationships}
+            files={files}
+            focusId={focusRelationship}
+            onEvidence={(ref) => {
+              setRequestedRef(ref);
+              const target = resources.find(
+                (r) =>
+                  r.source.fileId === ref.fileId &&
+                  r.source.document === ref.document,
+              );
+              if (target) onSelect(target.id);
+              onTab("YAML");
+            }}
+          />
+        </TabsContent>
+        <TabsContent value="Diff" className="pane-padding">
+          <h3>Desired / captured configuration</h3>
+          {!file || !displayed ? (
+            <p>
+              Both authored configuration and a captured API object are
+              required. No desired-state file is invented for generated
+              resources.
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                API bookkeeping and status excluded. Defaults remain visible.
+                Capture {source.captureEndedAt}.
+              </p>
+              {configurationDifferences(resource.raw, displayed).length ? (
+                configurationDifferences(resource.raw, displayed).map((d) => (
+                  <div className="event" key={d.path}>
+                    <strong>{d.path}</strong>
+                    <pre className="whitespace-pre-wrap break-all">{`Desired: ${JSON.stringify(d.desired) ?? "(absent)"}\nCaptured: ${JSON.stringify(d.observed) ?? "(absent)"}`}</pre>
+                  </div>
+                ))
+              ) : (
+                <p>No normalized configuration differences.</p>
+              )}
+            </>
+          )}
         </TabsContent>
         <TabsContent value="Events" className="pane-padding">
           <Badge variant="outline">

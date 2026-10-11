@@ -32,7 +32,7 @@ export function EndpointContractDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   source: Snapshot;
-  onDeclare: (s: Snapshot) => void;
+  onDeclare: (s: Snapshot) => Promise<void>;
 }) {
   const workloads = projectResources(source).filter(
     (r) => r.kind === "Deployment",
@@ -40,15 +40,17 @@ export function EndpointContractDialog({
   const [selected, setSelected] = useState(""),
     [path, setPath] = useState("/healthz"),
     [port, setPort] = useState("8080"),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [saving, setSaving] = useState(false);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Configure practice</DialogTitle>
           <DialogDescription>
-            Set a known healthy endpoint for this application. Practice uses
-            this to model repairs; it does not test your cluster.
+            Set a known healthy endpoint for this application. Waypoint verifies
+            it through the Service inside the owned local lab. The source
+            cluster remains unchanged.
           </DialogDescription>
         </DialogHeader>
         {source.contracts.map((c, i) => (
@@ -96,8 +98,8 @@ export function EndpointContractDialog({
         )}
         <DialogFooter>
           <Button
-            disabled={!workloads.length}
-            onClick={() => {
+            disabled={!workloads.length || saving}
+            onClick={async () => {
               const d =
                   workloads.find((r) => r.id === selected) ?? workloads[0],
                 containers = list(
@@ -117,26 +119,40 @@ export function EndpointContractDialog({
                 );
                 return;
               }
-              onDeclare(
-                importSnapshot(
-                  JSON.stringify({
-                    ...source,
-                    contracts: [
-                      {
-                        deployment: d.name,
-                        namespace: d.namespace,
-                        container: containers[0].name,
-                        path,
-                        port: n,
-                      },
-                    ],
-                  }),
-                ),
-              );
-              onOpenChange(false);
+              setError("");
+              setSaving(true);
+              try {
+                await onDeclare(
+                  importSnapshot(
+                    JSON.stringify({
+                      ...source,
+                      contracts: [
+                        ...source.contracts.filter(
+                          (c) =>
+                            c.namespace !== d.namespace ||
+                            c.deployment !== d.name ||
+                            c.container !== containers[0].name,
+                        ),
+                        {
+                          deployment: d.name,
+                          namespace: d.namespace,
+                          container: containers[0].name,
+                          path,
+                          port: n,
+                        },
+                      ],
+                    }),
+                  ),
+                );
+                onOpenChange(false);
+              } catch (e) {
+                setError((e as Error).message);
+              } finally {
+                setSaving(false);
+              }
             }}
           >
-            Declare supported endpoint
+            {saving ? "Saving…" : "Declare supported endpoint"}
           </Button>
         </DialogFooter>
       </DialogContent>

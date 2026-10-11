@@ -1,3 +1,4 @@
+import { podDependencies, secretKeyMetadata } from "./dependencies";
 import {
   at,
   list,
@@ -36,8 +37,22 @@ export function podLabels(r: Resource) {
         )
       : object(at(r.raw, "spec", "template", "metadata", "labels"));
 }
-export function analyze(resources: Resource[], observed: ObjectMap[] = []): Analysis {
-  const uid = (r: Resource) => at(r.raw,"metadata","uid") ?? at(observed.find(o=>o.kind===r.kind&&at(o,"metadata","name")===r.name&&at(o,"metadata","namespace")===r.namespace),"metadata","uid");
+export function analyze(
+  resources: Resource[],
+  observed: ObjectMap[] = [],
+): Analysis {
+  const uid = (r: Resource) =>
+    at(r.raw, "metadata", "uid") ??
+    at(
+      observed.find(
+        (o) =>
+          o.kind === r.kind &&
+          at(o, "metadata", "name") === r.name &&
+          at(o, "metadata", "namespace") === r.namespace,
+      ),
+      "metadata",
+      "uid",
+    );
   const relationships: Relationship[] = [];
   const workloads = resources.filter((r) =>
     [
@@ -58,8 +73,9 @@ export function analyze(resources: Resource[], observed: ObjectMap[] = []): Anal
     title: string,
     explanation: string,
     evidence: EvidenceRef[],
+    identity?: string,
   ) {
-    const id = `${from.id}:${kind}:${to?.id ?? title}:${title}`;
+    const id = `${from.id}:${kind}:${to?.id ?? identity ?? title}:${title}`;
     const existing = relationships.find((e) => e.id === id);
     if (existing) {
       existing.evidence.push(
@@ -166,79 +182,79 @@ export function analyze(resources: Resource[], observed: ObjectMap[] = []): Anal
           : r.kind === "CronJob"
             ? "spec.jobTemplate.spec.template.spec"
             : "spec.template.spec";
-      function reference(
-        kind: string,
-        name: string,
-        key: string | undefined,
-        path: string,
-      ) {
-        if (!name) return;
+      for (const dependency of podDependencies(spec)) {
         const target =
           resources.find(
             (t) =>
-              t.kind === kind && t.name === name && t.namespace === r.namespace,
+              t.kind === dependency.kind &&
+              t.name === dependency.name &&
+              t.namespace === r.namespace,
           ) ?? null;
-        const missing =
+        const availableKeys = target
+          ? dependency.kind === "Secret"
+            ? secretKeyMetadata(target.raw)
+            : [
+                ...Object.keys(object(target.raw.data)),
+                ...Object.keys(object(target.raw.binaryData)),
+              ]
+          : [];
+        const keysKnown =
           target &&
-          key !== undefined &&
-          !(key in object(target.raw.data)) &&
-          !(key in object(target.raw.binaryData));
+          (dependency.kind !== "Secret" ||
+            at(
+              target.raw,
+              "metadata",
+              "annotations",
+              "waypoint.dev/secret-keys",
+            ) !== undefined ||
+            target.raw.data !== undefined ||
+            target.raw.stringData !== undefined);
+        const missingKeys = keysKnown
+          ? dependency.keys.filter((key) => !availableKeys.includes(key))
+          : [];
+        const requiredMissing =
+          !dependency.optional && (!target || !!missingKeys.length);
         push(
           r,
           target,
           "references",
-          !target ? "unresolved" : missing ? "mismatch" : "match",
-          missing ? `Missing ${kind} key: ${key}` : `${kind} reference`,
-          !target
-            ? "Referenced resource is not in this import."
-            : missing
-              ? "The required referenced key is absent from this manifest."
-              : "The named dependency is present. Runtime behavior remains unobserved.",
-          [proof(r, path), ...(target ? [proof(target, "data")] : [])],
+          dependency.optional
+            ? "match"
+            : !target || (dependency.keys.length && !keysKnown)
+              ? "unresolved"
+              : missingKeys.length
+                ? "mismatch"
+                : "match",
+          dependency.optional
+            ? `Optional ${dependency.kind} reference`
+            : missingKeys.length
+              ? `Missing ${dependency.kind} key: ${missingKeys.join(", ")}`
+              : `${dependency.kind} reference`,
+          dependency.optional
+            ? "Optional dependency may be absent; its absence does not prevent Pod startup."
+            : !target
+              ? "Required dependency was not included. Cluster presence is unknown."
+              : dependency.keys.length && !keysKnown
+                ? "Secret values were removed and key metadata is unavailable. Key presence is unknown."
+                : requiredMissing
+                  ? "The required item key is absent from the imported configuration."
+                  : "The dependency is declared; runtime behavior is separate evidence.",
+          [
+            proof(r, `${prefix}.${dependency.path}`),
+            ...(target
+              ? [
+                  proof(
+                    target,
+                    dependency.kind === "Secret"
+                      ? "metadata.annotations.waypoint.dev/secret-keys"
+                      : "data",
+                  ),
+                ]
+              : []),
+          ],
+          dependency.name,
         );
       }
-      list(spec.containers).forEach((c, i) => {
-        list(c.env).forEach((env, j) => {
-          for (const [field, kind] of [
-            ["configMapKeyRef", "ConfigMap"],
-            ["secretKeyRef", "Secret"],
-          ]) {
-            const ref = object(at(env, "valueFrom", field));
-            reference(
-              kind,
-              text(ref.name),
-              text(ref.key) || undefined,
-              `${prefix}.containers.${i}.env.${j}.valueFrom.${field}`,
-            );
-          }
-        });
-        list(c.envFrom).forEach((env, j) => {
-          for (const [field, kind] of [
-            ["configMapRef", "ConfigMap"],
-            ["secretRef", "Secret"],
-          ])
-            reference(
-              kind,
-              text(at(env, field, "name")),
-              undefined,
-              `${prefix}.containers.${i}.envFrom.${j}.${field}`,
-            );
-        });
-      });
-      list(spec.volumes).forEach((v, i) => {
-        reference(
-          "ConfigMap",
-          text(at(v, "configMap", "name")),
-          undefined,
-          `${prefix}.volumes.${i}.configMap`,
-        );
-        reference(
-          "Secret",
-          text(at(v, "secret", "secretName")),
-          undefined,
-          `${prefix}.volumes.${i}.secret`,
-        );
-      });
     }
     if (r.kind === "Ingress" || r.kind === "Route") {
       const names =
@@ -275,21 +291,83 @@ export function analyze(resources: Resource[], observed: ObjectMap[] = []): Anal
       }
     }
     for (const owner of list(at(r.raw, "metadata", "ownerReferences"))) {
-      const target = resources.find(t => t.namespace===r.namespace && t.kind===owner.kind && text(owner.uid) && uid(t)===owner.uid) ?? null;
-      if(target) push(target,r,"owns","match","Controller ownership","Observed ownerReference UID matches the parent UID.",[proof(r,"metadata.ownerReferences")]);
-      else push(r,null,"owns","unresolved","Unresolved owner UID","The referenced parent UID is not present; name equality is not ownership proof.",[proof(r,"metadata.ownerReferences")]);
+      const target =
+        resources.find(
+          (t) =>
+            t.namespace === r.namespace &&
+            t.kind === owner.kind &&
+            text(owner.uid) &&
+            uid(t) === owner.uid,
+        ) ?? null;
+      if (target)
+        push(
+          target,
+          r,
+          "owns",
+          "match",
+          "Controller ownership",
+          "Observed ownerReference UID matches the parent UID.",
+          [proof(r, "metadata.ownerReferences")],
+        );
+      else
+        push(
+          r,
+          null,
+          "owns",
+          "unresolved",
+          "Unresolved owner UID",
+          "The referenced parent UID is not present; name equality is not ownership proof.",
+          [proof(r, "metadata.ownerReferences")],
+        );
     }
-    if(r.kind==="EndpointSlice"){
-      const name=text(at(r.raw,"metadata","labels","kubernetes.io/service-name"));
-      const service=resources.find(t=>t.kind==="Service"&&t.namespace===r.namespace&&t.name===name)??null;
-      if(service)push(service,r,"references","match","EndpointSlice association","Observed kubernetes.io/service-name label associates this slice with the Service.",[proof(r,"metadata.labels")]);
-      for(const endpoint of list(r.raw.endpoints)){
-        const ref=object(endpoint.targetRef),pod=resources.find(t=>t.kind===ref.kind&&t.namespace===r.namespace&&text(ref.uid)&&uid(t)===ref.uid)??null;
-        const ready=at(endpoint,"conditions","ready"),terminating=at(endpoint,"conditions","terminating");
-        push(r,pod,"references",!pod||typeof ready!=="boolean"?"unresolved":ready&&terminating!==true?"match":"mismatch","Endpoint target",`Endpoint ready=${String(ready??"unknown")}, terminating=${String(terminating??"unknown")}; UID target association. This does not prove HTTP traffic.`,[proof(r,"endpoints")]);
+    if (r.kind === "EndpointSlice") {
+      const name = text(
+        at(r.raw, "metadata", "labels", "kubernetes.io/service-name"),
+      );
+      const service =
+        resources.find(
+          (t) =>
+            t.kind === "Service" &&
+            t.namespace === r.namespace &&
+            t.name === name,
+        ) ?? null;
+      if (service)
+        push(
+          service,
+          r,
+          "references",
+          "match",
+          "EndpointSlice association",
+          "Observed kubernetes.io/service-name label associates this slice with the Service.",
+          [proof(r, "metadata.labels")],
+        );
+      for (const endpoint of list(r.raw.endpoints)) {
+        const ref = object(endpoint.targetRef),
+          pod =
+            resources.find(
+              (t) =>
+                t.kind === ref.kind &&
+                t.namespace === r.namespace &&
+                text(ref.uid) &&
+                uid(t) === ref.uid,
+            ) ?? null;
+        const ready = at(endpoint, "conditions", "ready"),
+          terminating = at(endpoint, "conditions", "terminating");
+        push(
+          r,
+          pod,
+          "references",
+          !pod || typeof ready !== "boolean"
+            ? "unresolved"
+            : ready && terminating !== true
+              ? "match"
+              : "mismatch",
+          "Endpoint target",
+          `Endpoint ready=${String(ready ?? "unknown")}, terminating=${String(terminating ?? "unknown")}; UID target association. This does not prove HTTP traffic.`,
+          [proof(r, "endpoints")],
+        );
       }
     }
-
   }
   return {
     relationships,

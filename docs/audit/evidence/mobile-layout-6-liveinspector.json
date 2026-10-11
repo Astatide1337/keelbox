@@ -1,0 +1,106 @@
+{
+  "group": {
+    "style": "height: 100%; width: 100%; overflow: hidden; display: flex; flex-flow: row; touch-action: pan-y;",
+    "display": "flex",
+    "columns": "none",
+    "width": 358,
+    "pane": "inspector"
+  },
+  "children": [
+    {
+      "slot": "resizable-panel",
+      "panel": "true",
+      "pane": "tree",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 18 1 0px; overflow: visible;",
+      "display": "none",
+      "width": 0,
+      "x": 0,
+      "inner": [
+        {
+          "slot": null,
+          "class": "max-md:!hidden max-md:!basis-full max-md:!w-full max-md:!grow",
+          "style": "max-height: 100%; max-width: 100%; flex-grow: 1; overflow: auto; touch-action: pan-y;",
+          "display": "none",
+          "width": 0
+        }
+      ]
+    },
+    {
+      "slot": "resizable-handle",
+      "panel": null,
+      "pane": null,
+      "class": "relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-hidden aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-1 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90 max-md:hidden",
+      "style": "flex: 0 0 auto; touch-action: none;",
+      "display": "none",
+      "width": 0,
+      "x": 0,
+      "inner": [
+        {
+          "slot": null,
+          "class": "z-10 flex h-4 w-3 items-center justify-center rounded-xs border bg-border",
+          "style": null,
+          "display": "flex",
+          "width": 0
+        }
+      ]
+    },
+    {
+      "slot": "resizable-panel",
+      "panel": "true",
+      "pane": "graph",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 49 1 0px; overflow: visible;",
+      "display": "none",
+      "width": 0,
+      "x": 0,
+      "inner": [
+        {
+          "slot": null,
+          "class": "max-md:!hidden max-md:!basis-full max-md:!w-full max-md:!grow",
+          "style": "max-height: 100%; max-width: 100%; flex-grow: 1; overflow: auto; touch-action: pan-y;",
+          "display": "none",
+          "width": 0
+        }
+      ]
+    },
+    {
+      "slot": "resizable-handle",
+      "panel": null,
+      "pane": null,
+      "class": "relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-hidden aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-1 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90 max-md:hidden",
+      "style": "flex: 0 0 auto; touch-action: none;",
+      "display": "none",
+      "width": 0,
+      "x": 0,
+      "inner": [
+        {
+          "slot": null,
+          "class": "z-10 flex h-4 w-3 items-center justify-center rounded-xs border bg-border",
+          "style": null,
+          "display": "flex",
+          "width": 0
+        }
+      ]
+    },
+    {
+      "slot": "resizable-panel",
+      "panel": "true",
+      "pane": "inspector",
+      "class": null,
+      "style": "min-height: 0px; max-height: 100%; height: auto; min-width: 0px; max-width: 100%; width: auto; border: 0px; padding: 0px; margin: 0px; display: flex; flex: 33 1 0px; overflow: visible;",
+      "display": "flex",
+      "width": 356,
+      "x": 17,
+      "inner": [
+        {
+          "slot": null,
+          "class": " max-md:!basis-full max-md:!w-full max-md:!grow",
+          "style": "max-height: 100%; max-width: 100%; flex-grow: 1; overflow: auto; touch-action: pan-y;",
+          "display": "block",
+          "width": 356
+        }
+      ]
+    }
+  ]
+}

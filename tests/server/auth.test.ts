@@ -270,6 +270,23 @@ test("local accounts isolate project and checkpoints, retain development source,
       inference(active, "authorized-model", {}),
       /subscription_sharing_usage_limit_exceeded/,
     );
+    // Controlled provider failures, never live quota exhaustion or new authorization.
+    for (const status of [401, 429]) {
+      globalThis.fetch = async () => new Response(null, { status });
+      await assert.rejects(
+        inference(active, "authorized-model", {}),
+        new RegExp(String(status)),
+      );
+    }
+    for (const name of ["TimeoutError", "AbortError"]) {
+      globalThis.fetch = async () => {
+        throw new DOMException("Controlled provider interruption", name);
+      };
+      await assert.rejects(
+        inference(active, "authorized-model", {}),
+        /Controlled provider interruption/,
+      );
+    }
     let release!: () => void;
     const revocation = new Promise<void>((r) => {
       release = r;

@@ -15,7 +15,12 @@ export type ResourcePresentation = {
 };
 export function resourceOrigin(resource: Resource, source: Snapshot) {
   if (source.files.some((f) => f.id === resource.source.fileId))
-    return "Authored manifest";
+    return source.renderProvenance?.some((p) => p.renderer !== "yaml")
+      ? "Rendered manifest · " +
+          [...new Set(source.renderProvenance.map((p) => p.renderer))].join(
+            ", ",
+          )
+      : "Authored manifest";
   return list(at(resource.raw, "metadata", "ownerReferences")).some(
     (o) => o.controller === true,
   )

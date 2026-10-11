@@ -12,7 +12,7 @@ import {
 } from "../../lib/practice/engine";
 const input = readFileSync("examples/storefront/snapshot.json", "utf8");
 for (const scenario of ["readiness", "liveness", "http503"] as const)
-  test(`${scenario}: fault, real semantic repair, modeled result, repeated reset and immutable source`, () => {
+  test(`${scenario}: legacy modeled fault, semantic repair, repeated reset and immutable source (no runtime)`, () => {
     const s = importSnapshot(input),
       digest = snapshotDigest(s);
     assert.equal(compatibility(s, scenario).supported, true);

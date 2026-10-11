@@ -1,0 +1,1710 @@
+{
+  "provider": "official SIWC restored prior consent",
+  "transport": "Responses store:false stream:true",
+  "preview": {
+    "context": {
+      "project": {
+        "label": "Owned local application",
+        "origin": "captured",
+        "capturedAt": "2026-10-11T05:34:19.801Z",
+        "live": true
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "Pod",
+          "name": "web-7bc4ff867b-tqgr9",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "ReplicaSet",
+                "name": "web-7bc4ff867b",
+                "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:1",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "phase": "Running",
+              "conditions": [
+                {
+                  "type": "PodReadyToStartContainers",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Initialized",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Ready",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "ContainersReady",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "PodScheduled",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                }
+              ],
+              "containers": [
+                {
+                  "name": "web",
+                  "ready": false,
+                  "restartCount": 0
+                }
+              ],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E2",
+          "resourceId": "apps/Deployment/waypoint-lab-a6e188877143/web",
+          "kind": "Deployment",
+          "name": "web",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {},
+            "selector": {
+              "app": "web"
+            },
+            "controllerOwners": [],
+            "replicas": 2,
+            "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:11",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [
+                {
+                  "type": "Available",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:18Z",
+                  "reason": "MinimumReplicasUnavailable"
+                },
+                {
+                  "type": "Progressing",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:31:19Z",
+                  "reason": "ReplicaSetUpdated"
+                }
+              ],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E3",
+          "resourceId": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "kind": "ReplicaSet",
+          "name": "web-7bc4ff867b",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "controllerOwners": [
+              {
+                "kind": "Deployment",
+                "name": "web",
+                "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297"
+              }
+            ],
+            "replicas": 2,
+            "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:14",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E4",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "Pod",
+          "name": "web-7bc4ff867b-j9ttj",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "ReplicaSet",
+                "name": "web-7bc4ff867b",
+                "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "0e4b5f52-9cb2-48b5-a348-d8dc7963bb5b",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:2",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "phase": "Running",
+              "conditions": [
+                {
+                  "type": "PodReadyToStartContainers",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Initialized",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Ready",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "ContainersReady",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "PodScheduled",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                }
+              ],
+              "containers": [
+                {
+                  "name": "web",
+                  "ready": false,
+                  "restartCount": 0
+                }
+              ],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E5",
+          "resourceId": "core/Service/waypoint-lab-a6e188877143/web",
+          "kind": "Service",
+          "name": "web",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {},
+            "selector": {
+              "app": "web"
+            },
+            "controllerOwners": [],
+            "replicas": "unknown",
+            "uid": "95d0e40f-557b-4d91-97dd-c234e717182c",
+            "servicePorts": [
+              {
+                "name": "http",
+                "port": 80,
+                "targetPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "containers": []
+          },
+          "source": {
+            "fileId": "capture:4",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E6",
+          "resourceId": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "EndpointSlice",
+          "name": "web-w5lsb",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+              "kubernetes.io/service-name": "web"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "Service",
+                "name": "web",
+                "uid": "95d0e40f-557b-4d91-97dd-c234e717182c"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "4ca96314-ea77-4aed-abdc-5942e0fadc20",
+            "endpoints": [
+              {
+                "targetUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+                "targetKind": "Pod",
+                "targetName": "web-7bc4ff867b-tqgr9",
+                "ready": false,
+                "serving": false,
+                "terminating": false
+              },
+              {
+                "targetUid": "0e4b5f52-9cb2-48b5-a348-d8dc7963bb5b",
+                "targetKind": "Pod",
+                "targetName": "web-7bc4ff867b-j9ttj",
+                "ready": false,
+                "serving": false,
+                "terminating": false
+              }
+            ],
+            "omittedEndpoints": 0,
+            "containers": []
+          },
+          "source": {
+            "fileId": "capture:16",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        }
+      ],
+      "omittedResources": 0,
+      "limits": {
+        "resources": 30,
+        "relationships": 60,
+        "mapEntries": 20,
+        "endpointsPerSlice": 30,
+        "order": "selected resource and edge, EndpointSlices, backend Pods, deterministic neighbors"
+      },
+      "relationships": [
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "selects",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:4",
+              "line": 41,
+              "path": [
+                "spec",
+                "selector"
+              ]
+            },
+            {
+              "fileId": "capture:1",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "selects",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:4",
+              "line": 41,
+              "path": [
+                "spec",
+                "selector"
+              ]
+            },
+            {
+              "fileId": "capture:2",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "references",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "references",
+          "status": "mismatch",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 42,
+              "path": [
+                "endpoints"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "references",
+          "status": "mismatch",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 42,
+              "path": [
+                "endpoints"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:1",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:2",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/Deployment/waypoint-lab-a6e188877143/web",
+          "to": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:14",
+              "line": 18,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        }
+      ],
+      "coverage": [
+        {
+          "kind": "Pod",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.366Z"
+        },
+        {
+          "kind": "Service",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.194Z"
+        },
+        {
+          "kind": "ConfigMap",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.845Z"
+        },
+        {
+          "kind": "Event",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:19.801Z"
+        },
+        {
+          "kind": "StatefulSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.503Z"
+        },
+        {
+          "kind": "DaemonSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.291Z"
+        },
+        {
+          "kind": "Job",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.891Z"
+        },
+        {
+          "kind": "CronJob",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.648Z"
+        },
+        {
+          "kind": "Ingress",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.429Z"
+        },
+        {
+          "kind": "PersistentVolumeClaim",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.298Z"
+        },
+        {
+          "kind": "NetworkPolicy",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.917Z"
+        },
+        {
+          "kind": "ServiceAccount",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.217Z"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.828Z"
+        },
+        {
+          "kind": "ReplicaSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.451Z"
+        },
+        {
+          "kind": "EndpointSlice",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.160Z"
+        }
+      ],
+      "excluded": [
+        "Secret values",
+        "ConfigMap contents",
+        "environment values",
+        "annotations",
+        "raw logs",
+        "raw event messages"
+      ],
+      "learning": {
+        "lesson": "readiness",
+        "objective": "Explain why a running container is excluded from traffic and restore the healthy readiness contract.",
+        "hypothesis": "The process runs but its readiness contract fails.",
+        "prediction": "Expect Ready False, kubelet probe evidence and excluded ready backends.",
+        "hintLevel": 1,
+        "visibleHints": [
+          "Compare Pod Ready conditions with container readiness, then inspect recent kubelet events."
+        ],
+        "solutionRequested": false,
+        "helpTarget": "failed-check"
+      },
+      "lab": {
+        "sessionId": "20b148b0-c75e-4de3-8d73-d8a2a2eb76d7",
+        "generation": 1,
+        "revision": 1,
+        "phase": "running",
+        "incident": "readiness",
+        "checks": [
+          {
+            "name": "ConfigMap/web-config configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Service/web configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "ConfigMap/gateway-config configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Service/gateway configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Recovery verification",
+            "passed": false,
+            "reason": "kubectl failed (1): error: timed out waiting for the condition\n"
+          }
+        ]
+      },
+      "events": [
+        {
+          "uid": "750ceceb-d0c1-4241-a165-c453439ecab2",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Scheduled",
+          "type": "Normal",
+          "source": "default-scheduler",
+          "firstTimestamp": "2026-10-11T05:32:19Z",
+          "lastTimestamp": "2026-10-11T05:32:19Z",
+          "count": 1
+        },
+        {
+          "uid": "4c3499e5-a4b0-4fb5-b37a-950862ee4d61",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Pulled",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:19Z",
+          "lastTimestamp": "2026-10-11T05:32:19Z",
+          "count": 1
+        },
+        {
+          "uid": "b0b598e3-4547-41fc-9c10-c480537e3df1",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Created",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "23ca7a36-bb4b-4d3f-bfda-8b0515469b6c",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Started",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "f3de6c2d-632a-42de-92a2-e7f978f1606c",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Unhealthy",
+          "type": "Warning",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "22bf309d-6e6f-4d4a-b727-24d9407daf2f",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Unhealthy",
+          "type": "Warning",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:33:06Z",
+          "count": 24
+        }
+      ]
+    },
+    "digest": "3d86ca83fffc2ac9126930f4a87e8a331822b87b2ce6c0cad2b19c5acd49a357",
+    "question": "Explain the difference between Running and Ready using the selected Pod and Service evidence. Give one investigation hint, without revealing a repair or awarding completion. Cite the evidence IDs."
+  },
+  "answer": {
+    "text": "**Running means the Pod’s containers have started; Ready means the Pod is eligible to receive normal Service traffic.** These are separate states.\n\n- **Captured Pod state:** The selected Pod is `Running`, but its `Ready` and `ContainersReady` conditions are `False`. Its `web` container reports `ready: false` with zero restarts—so running without restarting does not establish readiness. [E1]\n- **Captured Service/backend state:** The Service selects `app: web` and maps port `80` to `8080`, matching the selected Pod’s label and configured container port. However, its EndpointSlice lists both Pods with `ready: false` and `serving: false`. [E1] [E5] [E6]\n- **Inference:** The Service finds the Pods, but they are excluded from normal ready-backend routing because they are not ready—not because the selector fails to match. [E1] [E5] [E6]\n\n**One investigation hint:** Inspect recent kubelet probe events for the selected Pod and compare them with its captured readiness probe configuration. The supplied event summaries show `Unhealthy` warnings, but omit the messages needed to establish the exact probe failure. [E1]\n\nThese findings describe the supplied snapshot, not a fresh live verification. No authored manifest or synthetic resource evidence is supplied.",
+    "context": {
+      "project": {
+        "label": "Owned local application",
+        "origin": "captured",
+        "capturedAt": "2026-10-11T05:34:19.801Z",
+        "live": true
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "Pod",
+          "name": "web-7bc4ff867b-tqgr9",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "ReplicaSet",
+                "name": "web-7bc4ff867b",
+                "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:1",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "phase": "Running",
+              "conditions": [
+                {
+                  "type": "PodReadyToStartContainers",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Initialized",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Ready",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "ContainersReady",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "PodScheduled",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                }
+              ],
+              "containers": [
+                {
+                  "name": "web",
+                  "ready": false,
+                  "restartCount": 0
+                }
+              ],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E2",
+          "resourceId": "apps/Deployment/waypoint-lab-a6e188877143/web",
+          "kind": "Deployment",
+          "name": "web",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {},
+            "selector": {
+              "app": "web"
+            },
+            "controllerOwners": [],
+            "replicas": 2,
+            "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:11",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [
+                {
+                  "type": "Available",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:18Z",
+                  "reason": "MinimumReplicasUnavailable"
+                },
+                {
+                  "type": "Progressing",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:31:19Z",
+                  "reason": "ReplicaSetUpdated"
+                }
+              ],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E3",
+          "resourceId": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "kind": "ReplicaSet",
+          "name": "web-7bc4ff867b",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "controllerOwners": [
+              {
+                "kind": "Deployment",
+                "name": "web",
+                "uid": "f9c6a87c-0c1b-46a7-b3f2-4b3c34a1d297"
+              }
+            ],
+            "replicas": 2,
+            "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:14",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E4",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "Pod",
+          "name": "web-7bc4ff867b-j9ttj",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "app": "web",
+              "pod-template-hash": "7bc4ff867b"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "ReplicaSet",
+                "name": "web-7bc4ff867b",
+                "uid": "644e73f8-9931-43dd-8b37-d5616140fa4f"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "0e4b5f52-9cb2-48b5-a348-d8dc7963bb5b",
+            "containers": [
+              {
+                "name": "web",
+                "ports": [
+                  {
+                    "containerPort": 8080
+                  }
+                ],
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/waypoint-missing-20b148b0",
+                    "port": 8080
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 1
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/healthz",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 2
+                }
+              }
+            ]
+          },
+          "source": {
+            "fileId": "capture:2",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "phase": "Running",
+              "conditions": [
+                {
+                  "type": "PodReadyToStartContainers",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Initialized",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                },
+                {
+                  "type": "Ready",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "ContainersReady",
+                  "status": "False",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z",
+                  "reason": "ContainersNotReady"
+                },
+                {
+                  "type": "PodScheduled",
+                  "status": "True",
+                  "lastTransitionTime": "2026-10-11T05:32:19Z"
+                }
+              ],
+              "containers": [
+                {
+                  "name": "web",
+                  "ready": false,
+                  "restartCount": 0
+                }
+              ],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E5",
+          "resourceId": "core/Service/waypoint-lab-a6e188877143/web",
+          "kind": "Service",
+          "name": "web",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {},
+            "selector": {
+              "app": "web"
+            },
+            "controllerOwners": [],
+            "replicas": "unknown",
+            "uid": "95d0e40f-557b-4d91-97dd-c234e717182c",
+            "servicePorts": [
+              {
+                "name": "http",
+                "port": 80,
+                "targetPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "containers": []
+          },
+          "source": {
+            "fileId": "capture:4",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        },
+        {
+          "id": "E6",
+          "resourceId": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "EndpointSlice",
+          "name": "web-w5lsb",
+          "namespace": "waypoint-lab-a6e188877143",
+          "configuration": {
+            "provenance": "captured resource configuration; no authored manifest",
+            "labels": {
+              "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+              "kubernetes.io/service-name": "web"
+            },
+            "selector": {},
+            "controllerOwners": [
+              {
+                "kind": "Service",
+                "name": "web",
+                "uid": "95d0e40f-557b-4d91-97dd-c234e717182c"
+              }
+            ],
+            "replicas": "unknown",
+            "uid": "4ca96314-ea77-4aed-abdc-5942e0fadc20",
+            "endpoints": [
+              {
+                "targetUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+                "targetKind": "Pod",
+                "targetName": "web-7bc4ff867b-tqgr9",
+                "ready": false,
+                "serving": false,
+                "terminating": false
+              },
+              {
+                "targetUid": "0e4b5f52-9cb2-48b5-a348-d8dc7963bb5b",
+                "targetKind": "Pod",
+                "targetName": "web-7bc4ff867b-j9ttj",
+                "ready": false,
+                "serving": false,
+                "terminating": false
+              }
+            ],
+            "omittedEndpoints": 0,
+            "containers": []
+          },
+          "source": {
+            "fileId": "capture:16",
+            "line": 1,
+            "path": [],
+            "origin": "captured resource; no authored file"
+          },
+          "observation": {
+            "provenance": "captured snapshot",
+            "capturedAt": "2026-10-11T05:34:19.801Z",
+            "data": {
+              "conditions": [],
+              "containers": [],
+              "readyReplicas": "unknown"
+            }
+          }
+        }
+      ],
+      "omittedResources": 0,
+      "limits": {
+        "resources": 30,
+        "relationships": 60,
+        "mapEntries": 20,
+        "endpointsPerSlice": 30,
+        "order": "selected resource and edge, EndpointSlices, backend Pods, deterministic neighbors"
+      },
+      "relationships": [
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "selects",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:4",
+              "line": 41,
+              "path": [
+                "spec",
+                "selector"
+              ]
+            },
+            {
+              "fileId": "capture:1",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "selects",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:4",
+              "line": 41,
+              "path": [
+                "spec",
+                "selector"
+              ]
+            },
+            {
+              "fileId": "capture:2",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "references",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 12,
+              "path": [
+                "metadata",
+                "labels"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "references",
+          "status": "mismatch",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 42,
+              "path": [
+                "endpoints"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "references",
+          "status": "mismatch",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 42,
+              "path": [
+                "endpoints"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:1",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "to": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-j9ttj",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:2",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "apps/Deployment/waypoint-lab-a6e188877143/web",
+          "to": "apps/ReplicaSet/waypoint-lab-a6e188877143/web-7bc4ff867b",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:14",
+              "line": 18,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "[redacted]",
+          "provenance": "inferred",
+          "from": "core/Service/waypoint-lab-a6e188877143/web",
+          "to": "discovery.k8s.io/EndpointSlice/waypoint-lab-a6e188877143/web-w5lsb",
+          "kind": "owns",
+          "status": "match",
+          "source": [
+            {
+              "fileId": "capture:16",
+              "line": 15,
+              "path": [
+                "metadata",
+                "ownerReferences"
+              ]
+            }
+          ]
+        }
+      ],
+      "coverage": [
+        {
+          "kind": "Pod",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.366Z"
+        },
+        {
+          "kind": "Service",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.194Z"
+        },
+        {
+          "kind": "ConfigMap",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.845Z"
+        },
+        {
+          "kind": "Event",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:19.801Z"
+        },
+        {
+          "kind": "StatefulSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.503Z"
+        },
+        {
+          "kind": "DaemonSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.291Z"
+        },
+        {
+          "kind": "Job",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.891Z"
+        },
+        {
+          "kind": "CronJob",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.648Z"
+        },
+        {
+          "kind": "Ingress",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.429Z"
+        },
+        {
+          "kind": "PersistentVolumeClaim",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.298Z"
+        },
+        {
+          "kind": "NetworkPolicy",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.917Z"
+        },
+        {
+          "kind": "ServiceAccount",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.217Z"
+        },
+        {
+          "kind": "Deployment",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:17.828Z"
+        },
+        {
+          "kind": "ReplicaSet",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.451Z"
+        },
+        {
+          "kind": "EndpointSlice",
+          "namespace": "waypoint-lab-a6e188877143",
+          "state": "captured",
+          "capturedAt": "2026-10-11T05:34:18.160Z"
+        }
+      ],
+      "excluded": [
+        "Secret values",
+        "ConfigMap contents",
+        "environment values",
+        "annotations",
+        "raw logs",
+        "raw event messages"
+      ],
+      "learning": {
+        "lesson": "readiness",
+        "objective": "Explain why a running container is excluded from traffic and restore the healthy readiness contract.",
+        "hypothesis": "The process runs but its readiness contract fails.",
+        "prediction": "Expect Ready False, kubelet probe evidence and excluded ready backends.",
+        "hintLevel": 1,
+        "visibleHints": [
+          "Compare Pod Ready conditions with container readiness, then inspect recent kubelet events."
+        ],
+        "solutionRequested": false,
+        "helpTarget": "failed-check"
+      },
+      "lab": {
+        "sessionId": "20b148b0-c75e-4de3-8d73-d8a2a2eb76d7",
+        "generation": 1,
+        "revision": 1,
+        "phase": "running",
+        "incident": "readiness",
+        "checks": [
+          {
+            "name": "ConfigMap/web-config configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Service/web configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "ConfigMap/gateway-config configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Service/gateway configuration",
+            "passed": true,
+            "reason": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+          },
+          {
+            "name": "Recovery verification",
+            "passed": false,
+            "reason": "kubectl failed (1): error: timed out waiting for the condition\n"
+          }
+        ]
+      },
+      "events": [
+        {
+          "uid": "750ceceb-d0c1-4241-a165-c453439ecab2",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Scheduled",
+          "type": "Normal",
+          "source": "default-scheduler",
+          "firstTimestamp": "2026-10-11T05:32:19Z",
+          "lastTimestamp": "2026-10-11T05:32:19Z",
+          "count": 1
+        },
+        {
+          "uid": "4c3499e5-a4b0-4fb5-b37a-950862ee4d61",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Pulled",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:19Z",
+          "lastTimestamp": "2026-10-11T05:32:19Z",
+          "count": 1
+        },
+        {
+          "uid": "b0b598e3-4547-41fc-9c10-c480537e3df1",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Created",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "23ca7a36-bb4b-4d3f-bfda-8b0515469b6c",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Started",
+          "type": "Normal",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "f3de6c2d-632a-42de-92a2-e7f978f1606c",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Unhealthy",
+          "type": "Warning",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:32:20Z",
+          "count": 1
+        },
+        {
+          "uid": "22bf309d-6e6f-4d4a-b727-24d9407daf2f",
+          "resourceUid": "6f2d8762-f693-4851-8bf2-8bb27b7f0fad",
+          "resourceId": "core/Pod/waypoint-lab-a6e188877143/web-7bc4ff867b-tqgr9",
+          "reason": "Unhealthy",
+          "type": "Warning",
+          "source": "kubelet",
+          "firstTimestamp": "2026-10-11T05:32:20Z",
+          "lastTimestamp": "2026-10-11T05:33:06Z",
+          "count": 24
+        }
+      ]
+    },
+    "digest": "3d86ca83fffc2ac9126930f4a87e8a331822b87b2ce6c0cad2b19c5acd49a357"
+  }
+}

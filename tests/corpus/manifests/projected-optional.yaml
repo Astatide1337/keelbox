@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: projection, namespace: demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: projection}}
+  template:
+    metadata: {labels: {app: projection}}
+    spec:
+      initContainers:
+        - name: setup
+          image: busybox:1.37
+          env: [{name: OPTIONAL, valueFrom: {configMapKeyRef: {name: omitted, key: k, optional: true}}}]
+      containers:
+        - name: worker
+          image: busybox:1.37
+      volumes:
+        - name: optional
+          projected:
+            sources:
+              - secret: {name: omitted, optional: true, items: [{key: password, path: password}]}
+              - configMap: {name: omitted, optional: true, items: [{key: k, path: k}]}

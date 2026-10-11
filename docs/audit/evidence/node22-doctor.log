@@ -1,0 +1,9 @@
+OK flock: flock from util-linux 2.42.4
+OK Node: v22.23.3
+OK Docker: 29.8.2
+OK Minikube: v1.39.0
+OK kubectl: available
+OK Platform: Initial lab driver supports Linux + Docker.
+OK CPU / memory: 16 CPUs; 11.9 GiB free; lab requests 2 CPUs / 4 GiB.
+OK Docker endpoint: Local Unix socket
+OK Disk: 309.3 GiB available; minimum 10 GiB.

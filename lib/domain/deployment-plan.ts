@@ -10,6 +10,7 @@ import {
   type SourceFile,
 } from "./types";
 import type { Snapshot } from "./snapshot";
+import { podDependencies, secretKeyMetadata } from "./dependencies";
 export type HttpContract = {
   namespace?: string;
   deployment: string;
@@ -44,6 +45,22 @@ export type DeploymentPlan = {
   needsIngress: boolean;
   needsVault: boolean;
   localImages: { original: string; reference: string; imageId: string }[];
+  capabilities: Record<
+    | "importable"
+    | "explainable"
+    | "deployable"
+    | "observable"
+    | "exerciseEligible",
+    { status: "supported" | "partial" | "blocked"; reasons: string[] }
+  >;
+  requirements: string[];
+  namespaceLabels: Record<string, Record<string, string>>;
+  resetSemantics: {
+    jobs: string[];
+    persistentVolumes: string[];
+    cronJobs: string[];
+    description: string;
+  };
 };
 export const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -94,6 +111,7 @@ export function deploymentPlan(
   blockers.push(
     ...parsed.diagnostics.map((d) => `${d.fileId}:${d.line}: ${d.message}`),
   );
+  const requirements: string[] = [];
   const namespaces = new Set(
     parsed.resources
       .filter((r) => r.kind !== "Namespace")
@@ -107,13 +125,32 @@ export function deploymentPlan(
         i === 0 ? namespace : namespace + "-" + digest(ns).slice(0, 8),
       ]),
   );
+  const namespaceLabels = Object.fromEntries(
+    Object.entries(namespaceMap).map(([original, owned]) => {
+      const source = parsed.resources.find(
+        (r) => r.kind === "Namespace" && r.name === original,
+      );
+      const labels = Object.fromEntries(
+        Object.entries(object(at(source?.raw, "metadata", "labels"))).filter(
+          ([key, value]) =>
+            typeof value === "string" &&
+            !key.startsWith("waypoint.dev/") &&
+            key !== "kubernetes.io/metadata.name",
+        ),
+      );
+      return [owned, { ...labels, "waypoint.dev/lab": namespace }];
+    }),
+  );
   for (const ns of Object.values(namespaceMap))
     if (ns !== namespace)
       resources.push({
         apiVersion: "v1",
         kind: "Namespace",
-        metadata: { name: ns, labels: { "waypoint.dev/lab": namespace } },
+        metadata: { name: ns, labels: namespaceLabels[ns] },
       });
+  requirements.push(
+    "Namespace rewriting covers resource metadata, ServiceAccount RoleBinding subjects, standard *.namespace.svc DNS and known scheduling namespace selectors. Arbitrary application strings and custom-resource semantics require explicit review.",
+  );
   const secretRequirements = new Map<
     string,
     { namespace: string; name: string; keys: Set<string> }
@@ -144,10 +181,34 @@ export function deploymentPlan(
       .filter((r) => r.kind === "ConfigMap")
       .map((r) => [
         (r.namespace ?? "default") + "/" + r.name,
-        new Set(Object.keys(object(r.raw.data))),
+        new Set([
+          ...Object.keys(object(r.raw.data)),
+          ...Object.keys(object(r.raw.binaryData)),
+        ]),
       ]),
   );
   for (const r of parsed.resources) {
+    if (
+      (r.kind === "ConfigMap" && r.name === "waypoint-ownership") ||
+      Object.keys(object(at(r.raw, "metadata", "labels"))).some((key) =>
+        key.startsWith("waypoint.dev/"),
+      )
+    )
+      blockers.push(
+        `${r.kind}/${r.name}: reserved Waypoint ownership identity or label cannot be imported into a lab.`,
+      );
+    if (r.kind === "NetworkPolicy")
+      blockers.push(
+        `NetworkPolicy/${r.name}: the default Minikube network is not verified to enforce policy. Remove it only in an explicitly reviewed test configuration, or provision an enforcing CNI with separate approval.`,
+      );
+    if (r.kind === "HorizontalPodAutoscaler")
+      blockers.push(
+        `HorizontalPodAutoscaler/${r.name}: execution requires verified metrics, dynamic replica grading and autoscaler observation. Import and inspect are available; local execution is gated.`,
+      );
+    if (at(r.raw, "metadata", "annotations", "helm.sh/hook"))
+      blockers.push(
+        `${r.kind}/${r.name}: Helm hook lifecycle is not executed by manifest apply. Render without hooks or supply an explicitly reviewed regular resource.`,
+      );
     if (
       ["Pod", "ReplicaSet", "EndpointSlice", "Event"].includes(r.kind) &&
       list(at(r.raw, "metadata", "ownerReferences")).length
@@ -240,21 +301,7 @@ export function deploymentPlan(
       );
     }
     if (r.kind === "Secret") {
-      let keys: string[] = [];
-      try {
-        keys = JSON.parse(
-          text(
-            at(value, "metadata", "annotations", "waypoint.dev/secret-keys"),
-          ) || "[]",
-        );
-      } catch {}
-      keys = [
-        ...new Set([
-          ...keys,
-          ...Object.keys(object(value.data)),
-          ...Object.keys(object(value.stringData)),
-        ]),
-      ];
+      const keys = secretKeyMetadata(value);
       delete value.data;
       delete value.stringData;
       requireSecret(r.name, r.namespace ?? "default");
@@ -275,7 +322,39 @@ export function deploymentPlan(
         if (tls.secretName)
           requireSecret(text(tls.secretName), r.namespace ?? "default");
     }
+    if (r.kind === "PersistentVolumeClaim") {
+      const storage = text(at(value, "spec", "storageClassName"));
+      const rawModes = at(value, "spec", "accessModes");
+      requirements.push(
+        `PVC/${r.name}: local storage provisioning (${storage || "default StorageClass"}), ${Array.isArray(rawModes) ? rawModes.join(", ") : "unspecified access modes"}; reset preserves data.`,
+      );
+      if (storage && storage !== "standard")
+        blockers.push(
+          `PVC/${r.name}: StorageClass ${storage} is not provided by the verified local runtime; configure it explicitly or approve a disclosed test substitution.`,
+        );
+      if (
+        Array.isArray(rawModes) &&
+        rawModes.some(
+          (mode) => mode !== "ReadWriteOnce" && mode !== "ReadWriteOncePod",
+        )
+      )
+        blockers.push(
+          `PVC/${r.name}: requested access modes need a compatible provisioner; the default local storage does not provide multi-node shared storage.`,
+        );
+    }
+    if (r.kind === "CronJob")
+      requirements.push(
+        `CronJob/${r.name}: configuration will be applied; awaiting schedule ${text(at(value, "spec", "schedule")) || "(missing)"} is not successful execution. Use a separately reviewed one-run action.`,
+      );
     if (r.kind === "Service") {
+      if (at(value, "spec", "type") === "LoadBalancer")
+        blockers.push(
+          `Service/${r.name}: cloud LoadBalancer semantics are not provided by a local profile. Approve an explicit ClusterIP/Ingress substitution; no silent conversion.`,
+        );
+      if (at(value, "spec", "type") === "ExternalName")
+        requirements.push(
+          `Service/${r.name}: ExternalName ${text(at(value, "spec", "externalName"))} remains an external dependency; local baseline cannot establish its availability.`,
+        );
       for (const k of [
         "clusterIP",
         "clusterIPs",
@@ -373,7 +452,65 @@ export function deploymentPlan(
           replicas < 0
         )
           blockers.push(`${r.kind}/${r.name}: invalid replica count`);
-        object(value.spec).replicas = replicas;
+        if (at(value, "spec", "replicas") !== undefined)
+          object(value.spec).replicas = replicas;
+      }
+      function rewriteAffinity(v: unknown): void {
+        if (!v || typeof v !== "object") return;
+        const node = object(v);
+        if (Array.isArray(node.namespaces))
+          node.namespaces = node.namespaces.map((ns) => {
+            const mapped = namespaceMap[text(ns)];
+            if (!mapped)
+              blockers.push(
+                `${r.kind}/${r.name}: affinity references namespace ${text(ns)} outside the selected application.`,
+              );
+            return mapped ?? ns;
+          });
+        const matchLabels = object(
+          at(node, "namespaceSelector", "matchLabels"),
+        );
+        const ns = text(matchLabels["kubernetes.io/metadata.name"]);
+        if (ns) {
+          if (namespaceMap[ns])
+            matchLabels["kubernetes.io/metadata.name"] = namespaceMap[ns];
+          else
+            blockers.push(
+              `${r.kind}/${r.name}: namespace selector ${ns} is outside the selected application.`,
+            );
+        }
+        for (const child of Object.values(node))
+          if (Array.isArray(child)) child.forEach(rewriteAffinity);
+          else if (child && typeof child === "object") rewriteAffinity(child);
+      }
+      rewriteAffinity(pod.affinity);
+      if (
+        pod.affinity ||
+        pod.nodeSelector ||
+        pod.topologySpreadConstraints ||
+        pod.tolerations
+      )
+        requirements.push(
+          `${r.kind}/${r.name}: scheduling constraints are preserved and must match the local node; unschedulability is reported from real events.`,
+        );
+      for (const container of [
+        ...list(pod.containers),
+        ...list(pod.initContainers),
+      ]) {
+        const requests = object(at(container, "resources", "requests")),
+          limits = object(at(container, "resources", "limits"));
+        for (const key of new Set([
+          ...Object.keys(requests),
+          ...Object.keys(limits),
+        ]))
+          if (key.includes("/"))
+            blockers.push(
+              `${r.kind}/${r.name}: extended resource ${key} requires a device/operator not provisioned by the local runtime.`,
+            );
+        if (Object.keys(requests).length)
+          requirements.push(
+            `${r.kind}/${r.name}, container ${text(container.name)}: capacity requests ${JSON.stringify(requests)} retained; insufficient resources are reported from scheduling events.`,
+          );
       }
       const pulls = configuration.secrets.filter(
         (s) =>
@@ -431,43 +568,6 @@ export function deploymentPlan(
           blockers.push(
             `Deployment/${r.name}: dangerous security configuration`,
           );
-        for (const e of list(c.env)) {
-          if (
-            at(e, "valueFrom", "secretKeyRef") &&
-            at(e, "valueFrom", "secretKeyRef", "optional") !== true
-          )
-            requireSecret(
-              text(at(e, "valueFrom", "secretKeyRef", "name")),
-              r.namespace ?? "default",
-              text(at(e, "valueFrom", "secretKeyRef", "key")),
-            );
-          const ref = object(at(e, "valueFrom", "configMapKeyRef"));
-          if (
-            ref.name &&
-            !configKeys
-              .get((r.namespace ?? "default") + "/" + text(ref.name))
-              ?.has(text(ref.key))
-          )
-            blockers.push(
-              `Deployment/${r.name}: missing ConfigMap key ${text(ref.name)}/${text(ref.key)}`,
-            );
-        }
-        for (const e of list(c.envFrom)) {
-          if (e.secretRef && at(e, "secretRef", "optional") !== true)
-            requireSecret(
-              text(at(e, "secretRef", "name")),
-              r.namespace ?? "default",
-            );
-          if (
-            e.configMapRef &&
-            !configKeys.has(
-              (r.namespace ?? "default") +
-                "/" +
-                text(at(e, "configMapRef", "name")),
-            )
-          )
-            blockers.push(`Deployment/${r.name}: missing ConfigMap reference`);
-        }
       }
       for (const v of list(pod.volumes)) {
         if (at(v, "csi", "driver") === "secrets-store.csi.k8s.io") {
@@ -483,69 +583,73 @@ export function deploymentPlan(
         }
         if (v.hostPath)
           blockers.push(`${r.kind}/${r.name}: hostPath is not permitted.`);
-        if (v.secret && at(v, "secret", "optional") !== true) {
-          requireSecret(
-            text(at(v, "secret", "secretName")),
-            r.namespace ?? "default",
+      }
+      for (const dependency of podDependencies(pod)) {
+        if (dependency.optional) continue;
+        if (dependency.kind === "Secret") {
+          requireSecret(dependency.name, r.namespace ?? "default");
+          for (const key of dependency.keys)
+            requireSecret(dependency.name, r.namespace ?? "default", key);
+        } else {
+          const target = parsed.resources.find(
+            (candidate) =>
+              candidate.kind === dependency.kind &&
+              candidate.name === dependency.name &&
+              (candidate.namespace ?? "default") === (r.namespace ?? "default"),
           );
-          for (const item of list(at(v, "secret", "items")))
-            requireSecret(
-              text(at(v, "secret", "secretName")),
-              r.namespace ?? "default",
-              text(item.key),
+          if (!target)
+            blockers.push(
+              `${r.kind}/${r.name}: missing ${dependency.kind}/${dependency.name} at ${dependency.path}`,
             );
+          else if (dependency.kind === "ConfigMap")
+            for (const key of dependency.keys)
+              if (
+                !configKeys
+                  .get((r.namespace ?? "default") + "/" + dependency.name)
+                  ?.has(key)
+              )
+                blockers.push(
+                  `${r.kind}/${r.name}: missing ConfigMap key ${dependency.name}/${key} at ${dependency.path}`,
+                );
         }
-        if (
-          v.configMap &&
-          at(v, "configMap", "optional") !== true &&
-          !configKeys.has(
-            (r.namespace ?? "default") + "/" + text(at(v, "configMap", "name")),
-          )
-        )
-          blockers.push(`${r.kind}/${r.name}: missing volume ConfigMap`);
-        if (
-          v.persistentVolumeClaim &&
-          !parsed.resources.some(
-            (p) =>
-              p.kind === "PersistentVolumeClaim" &&
-              (p.namespace ?? "default") === (r.namespace ?? "default") &&
-              p.name === text(at(v, "persistentVolumeClaim", "claimName")),
-          )
-        )
-          blockers.push(
-            `${r.kind}/${r.name}: missing PVC ${text(at(v, "persistentVolumeClaim", "claimName"))}`,
-          );
-        for (const projected of list(at(v, "projected", "sources")))
-          if (projected.secret)
-            requireSecret(
-              text(at(projected, "secret", "name")),
-              r.namespace ?? "default",
-            );
       }
       for (const c of [...list(pod.containers), ...list(pod.initContainers)])
         for (const port of list(c.ports))
           if (port.hostPort)
             blockers.push(`${r.kind}/${r.name}: hostPort is not permitted.`);
+    }
+    if (r.kind === "RoleBinding") {
+      const role = object(value.roleRef);
       if (
-        pod.serviceAccountName &&
-        pod.serviceAccountName !== "default" &&
+        role.kind === "Role" &&
         !parsed.resources.some(
-          (p) =>
-            p.kind === "ServiceAccount" &&
-            (p.namespace ?? "default") === (r.namespace ?? "default") &&
-            p.name === pod.serviceAccountName,
+          (candidate) =>
+            candidate.kind === "Role" &&
+            candidate.namespace === r.namespace &&
+            candidate.name === role.name,
         )
       )
         blockers.push(
-          `${r.kind}/${r.name}: missing ServiceAccount ${text(pod.serviceAccountName)}`,
+          `RoleBinding/${r.name}: missing Role/${text(role.name)} in its namespace.`,
         );
-    }
-    if (r.kind === "RoleBinding")
+      if (
+        role.kind === "ClusterRole" &&
+        !["view", "edit", "admin"].includes(text(role.name))
+      )
+        blockers.push(
+          `RoleBinding/${r.name}: ClusterRole/${text(role.name)} is an external cluster-scoped dependency; provide a reviewed namespaced Role instead.`,
+        );
       for (const subject of list(value.subjects))
-        if (subject.kind === "ServiceAccount")
-          subject.namespace =
-            namespaceMap[text(subject.namespace) || r.namespace || "default"] ??
-            text(subject.namespace);
+        if (subject.kind === "ServiceAccount") {
+          const sourceNamespace =
+            text(subject.namespace) || r.namespace || "default";
+          if (!namespaceMap[sourceNamespace])
+            blockers.push(
+              `RoleBinding/${r.name}: ServiceAccount subject namespace ${sourceNamespace} is outside the selected application; include its namespace resources explicitly.`,
+            );
+          else subject.namespace = namespaceMap[sourceNamespace];
+        }
+    }
     resources.push(value);
   }
   if (
@@ -575,58 +679,66 @@ export function deploymentPlan(
         probe.httpHeaders
       )
         continue;
+      if (
+        list(c.ports).some(
+          (port) =>
+            port.containerPort === probe.port &&
+            (port.protocol ?? "TCP") !== "TCP",
+        )
+      ) {
+        blockers.push(
+          `Deployment/${text(at(dep, "metadata", "name"))}, container ${text(c.name)}: HTTP probe declares a non-TCP container port.`,
+        );
+        continue;
+      }
       const labels = object(at(dep, "spec", "template", "metadata", "labels"));
       const probePort =
         typeof probe.port === "number"
           ? probe.port
-          : list(c.ports).find((p) => p.name === probe.port)?.containerPort;
-      const service = resources.find(
-        (r) =>
-          r.kind === "Service" &&
-          at(r, "metadata", "namespace") === at(dep, "metadata", "namespace") &&
-          Object.keys(object(at(r, "spec", "selector"))).length &&
-          Object.entries(object(at(r, "spec", "selector"))).every(
-            ([k, v]) => labels[k] === v,
-          ) &&
-          list(at(r, "spec", "ports")).some((p) => {
-            const target = p.targetPort ?? p.port;
-            const number =
-              typeof target === "number"
-                ? target
-                : list(c.ports).find((cp) => cp.name === target)?.containerPort;
-            return (
-              p.protocol !== "UDP" &&
-              probePort !== undefined &&
-              number === probePort
-            );
-          }),
+          : list(c.ports).find(
+              (p) => p.name === probe.port && (p.protocol ?? "TCP") === "TCP",
+            )?.containerPort;
+      const services = resources.filter(
+        (resource) =>
+          resource.kind === "Service" &&
+          at(resource, "metadata", "namespace") ===
+            at(dep, "metadata", "namespace") &&
+          Object.keys(object(at(resource, "spec", "selector"))).length &&
+          Object.entries(object(at(resource, "spec", "selector"))).every(
+            ([key, value]) => labels[key] === value,
+          ),
       );
-      const port = list(at(service, "spec", "ports")).find((p) => {
-        const target = p.targetPort ?? p.port;
-        const targetNumber =
-          typeof target === "number"
-            ? target
-            : list(c.ports).find((cp) => cp.name === target)?.containerPort;
-        return (
-          p.protocol !== "UDP" &&
-          probePort !== undefined &&
-          targetNumber === probePort
-        );
-      });
-      if (service && port && typeof port.port === "number") {
-        const candidate: HttpContract = {
-          namespace: text(at(dep, "metadata", "namespace")),
-          deployment: text(at(dep, "metadata", "name")),
-          container: text(c.name),
-          service: text(at(service, "metadata", "name")),
-          port: port.port,
-          path: text(probe.path),
-          probePort: probe.port as number | string,
-          livenessPath:
-            text(at(c, "livenessProbe", "httpGet", "path")) || undefined,
-        };
-        contracts.push(candidate);
-      }
+      for (const service of services)
+        for (const port of list(at(service, "spec", "ports"))) {
+          const target = port.targetPort ?? port.port;
+          const targetNumber =
+            typeof target === "number"
+              ? target
+              : list(c.ports).find(
+                  (containerPort) =>
+                    containerPort.name === target &&
+                    (containerPort.protocol ?? "TCP") === "TCP",
+                )?.containerPort;
+          if (probePort === undefined || targetNumber !== probePort) continue;
+          if ((port.protocol ?? "TCP") !== "TCP") {
+            blockers.push(
+              `Service/${text(at(service, "metadata", "name"))}: HTTP probe contract cannot use ${text(port.protocol)}; TCP is required.`,
+            );
+            continue;
+          }
+          if (typeof port.port !== "number") continue;
+          contracts.push({
+            namespace: text(at(dep, "metadata", "namespace")),
+            deployment: text(at(dep, "metadata", "name")),
+            container: text(c.name),
+            service: text(at(service, "metadata", "name")),
+            port: port.port,
+            path: text(probe.path),
+            probePort: probe.port as number | string,
+            livenessPath:
+              text(at(c, "livenessProbe", "httpGet", "path")) || undefined,
+          });
+        }
     }
   }
   contract = contracts[0] ?? null;
@@ -634,7 +746,13 @@ export function deploymentPlan(
     if (typeof v === "string") {
       let result = v;
       for (const [original, owned] of Object.entries(namespaceMap))
-        result = result.replaceAll(`.${original}.svc`, `.${owned}.svc`);
+        result = result.replace(
+          new RegExp(
+            `\\.${original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.svc(?=\\.|:|/|\\s|$)`,
+            "g",
+          ),
+          `.${owned}.svc`,
+        );
       if (result !== v)
         changes.push(
           "Cross-namespace Service DNS rewritten to owned namespaces",
@@ -654,6 +772,74 @@ export function deploymentPlan(
     sourceHash = digest(project.files);
   return {
     sourceHash,
+    requirements: [...new Set(requirements)],
+    namespaceLabels: namespaceLabels as Record<string, Record<string, string>>,
+    resetSemantics: {
+      jobs: resources
+        .filter((r) => r.kind === "Job")
+        .map(
+          (r) =>
+            text(at(r, "metadata", "namespace")) +
+            "/" +
+            text(at(r, "metadata", "name")),
+        ),
+      persistentVolumes: resources
+        .filter((r) => r.kind === "PersistentVolumeClaim")
+        .map(
+          (r) =>
+            text(at(r, "metadata", "namespace")) +
+            "/" +
+            text(at(r, "metadata", "name")),
+        ),
+      cronJobs: resources
+        .filter((r) => r.kind === "CronJob")
+        .map(
+          (r) =>
+            text(at(r, "metadata", "namespace")) +
+            "/" +
+            text(at(r, "metadata", "name")),
+        ),
+      description:
+        "Reset reapplies reviewed manifests and probes. Completed Jobs are not rerun; PVC data is preserved. CronJobs await their schedule; an explicit reviewed one-run action is separate.",
+    },
+    capabilities: {
+      importable: {
+        status: parsed.diagnostics.length ? "blocked" : "supported",
+        reasons: parsed.diagnostics.map((d) => d.message),
+      },
+      explainable: {
+        status: parsed.resources.some(
+          (r) => !appKinds.has(r.kind) && r.kind !== "Namespace",
+        )
+          ? "partial"
+          : "supported",
+        reasons: parsed.resources
+          .filter((r) => !appKinds.has(r.kind) && r.kind !== "Namespace")
+          .map((r) => `${r.kind}: generic inspection only`),
+      },
+      deployable: {
+        status: blockers.length ? "blocked" : "supported",
+        reasons: [...new Set(blockers)],
+      },
+      observable: {
+        status: "partial",
+        reasons: [
+          "Supported resource LIST/WATCH, Events and selected container logs require successful API access. Missing access is unknown, not healthy.",
+        ],
+      },
+      exerciseEligible: {
+        status: blockers.length || !contracts.length ? "blocked" : "supported",
+        reasons: blockers.length
+          ? [...new Set(blockers)]
+          : contracts.length
+            ? [
+                "HTTP readiness incident; liveness additionally requires an HTTP liveness probe on the selected container.",
+              ]
+            : [
+                "No compatible Deployment, HTTP readiness probe and TCP Service contract.",
+              ],
+      },
+    },
     planHash: digest({
       sourceHash,
       namespace,
