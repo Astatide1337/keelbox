@@ -5,7 +5,10 @@ import {
   incidentOperation,
   isSyntheticMarketData,
 } from "../../lib/domain/live-incidents";
-import { recipeEvidence, validateRecipe } from "../../lib/domain/generated-incident";
+import {
+  recipeEvidence,
+  validateRecipe,
+} from "../../lib/domain/generated-incident";
 import type {
   DeploymentPlan,
   HttpContract,
@@ -38,16 +41,27 @@ const consumer: HttpContract = {
 };
 test("incident summary preserves exact structural targets and expanded faults", () => {
   const summary = recipeEvidence(plan()).context;
-  const target = summary.targets.find((entry) => entry.deployment === "market-producer")!;
+  const target = summary.targets.find(
+    (entry) => entry.deployment === "market-producer",
+  )!;
   assert.equal(target.target, `${namespace}/market-producer/producer`);
   assert.ok(target.target.length > 40);
-  assert.deepEqual(target.incidents.map((entry) => entry.id), [
-    "readiness", "liveness", "service-selector", "service-target-port",
-    "image-pull", "configmap-key", "market-data-stale",
-  ]);
+  assert.deepEqual(
+    target.incidents.map((entry) => entry.id),
+    [
+      "readiness",
+      "liveness",
+      "service-selector",
+      "service-target-port",
+      "image-pull",
+      "configmap-key",
+      "market-data-stale",
+    ],
+  );
   const unsafe = structuredClone(plan());
   unsafe.namespace = "a".repeat(48);
-  for (const contract of unsafe.contracts!) contract.namespace = unsafe.namespace;
+  for (const contract of unsafe.contracts!)
+    contract.namespace = unsafe.namespace;
   for (const resource of unsafe.resources)
     (resource.metadata as { namespace: string }).namespace = unsafe.namespace;
   assert.equal(recipeEvidence(unsafe).context.targets[0].target, "[redacted]");

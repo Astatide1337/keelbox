@@ -124,9 +124,9 @@ export function recipeEvidence(plan: DeploymentPlan) {
   // Check each Kubernetes identifier before preserving the exact validated key.
   context.targets = context.targets.map((entry, index) => {
     const target = targets[index].target;
-    const safe = target.split("/").every(
-      (part) => /^[a-z0-9.-]+$/.test(part) && safeText(part) === part,
-    );
+    const safe = target
+      .split("/")
+      .every((part) => /^[a-z0-9.-]+$/.test(part) && safeText(part) === part);
     return { ...entry, target: safe ? target : "[redacted]" };
   });
   return { context, digest: digest(context) };

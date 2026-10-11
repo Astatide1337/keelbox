@@ -8,6 +8,7 @@ import {
   cp,
 } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
+import { createRequire } from "node:module";
 
 const root = process.cwd();
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
@@ -16,17 +17,28 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 
 async function packageAt(name, parent = root) {
-  const path = resolve(
-    parent,
-    "node_modules",
-    ...name.split("/"),
-    "package.json",
-  );
   try {
-    const resolved = await realpath(path);
-    const metadata = JSON.parse(await readFile(resolved, "utf8"));
-    if (metadata.name !== name) return null;
-    return { root: dirname(resolved), metadata };
+    const require = createRequire(join(parent, "package.json"));
+    let directory;
+    try {
+      directory = dirname(
+        await realpath(require.resolve(name + "/package.json")),
+      );
+    } catch {
+      // Some packages restrict package.json exports. Resolve their entry point
+      // without executing it, then locate the matching package metadata.
+      directory = dirname(await realpath(require.resolve(name)));
+    }
+    while (directory !== dirname(directory)) {
+      try {
+        const metadata = JSON.parse(
+          await readFile(join(directory, "package.json"), "utf8"),
+        );
+        if (metadata.name === name) return { root: directory, metadata };
+      } catch {}
+      directory = dirname(directory);
+    }
+    return null;
   } catch {
     return null;
   }
