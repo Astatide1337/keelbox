@@ -1,2 +1,0 @@
-# Preserve captured stdout/stderr logs exactly; tool output may include blank lines or trailing spaces.
-docs/audit/evidence/recovery-checks-20261011/*.log -whitespace

@@ -59,8 +59,6 @@ try {
     "THIRD_PARTY_NOTICES.md",
     "dist/cli/index.cjs",
     "dist/ui/server.js",
-    "SETUP.md",
-    "examples/market-data/README.md",
     "examples/market-data/kustomization.yaml",
     "examples/market-data/manifests/producer-settings.yaml",
     "examples/market-data/src/producer.py",

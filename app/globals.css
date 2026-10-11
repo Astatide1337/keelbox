@@ -744,8 +744,8 @@ main {
   opacity: 0;
 }
 .react-flow__controls {
-  left: auto !important;
-  right: 16px;
+  left: 16px !important;
+  right: auto;
   bottom: 16px !important;
   display: flex;
   box-shadow: none !important;
@@ -762,7 +762,7 @@ main {
   width: 100px !important;
   height: 65px !important;
   background: var(--card) !important;
-  bottom: 62px !important;
+  bottom: 88px !important;
 }
 .stale {
   opacity: 0.7;
@@ -1340,7 +1340,7 @@ main {
 }
 .graph-map-toggle {
   position: absolute;
-  right: 16px;
+  left: 134px;
   bottom: 16px;
   z-index: 3;
 }
@@ -1348,9 +1348,6 @@ main {
   width: 34px;
   height: 34px;
   background: var(--card);
-}
-.react-flow__controls {
-  right: 58px;
 }
 
 .live-practice {
@@ -1447,6 +1444,10 @@ main {
   position: relative;
   overflow: hidden;
   margin: 12px 0;
+}
+.lab-editor > .source-editor {
+  height: 100%;
+  min-height: 0;
 }
 .live-event {
   padding: 14px 0;

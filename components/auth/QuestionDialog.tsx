@@ -107,8 +107,7 @@ export function QuestionDialog({
       };
       question: string;
     } | null>(null);
-  const revision = useRef<string | undefined>(undefined),
-    requestId = useRef("");
+  const returnFocus = useRef<HTMLElement | null>(null);
   const controller = useRef<AbortController | null>(null);
   const scopeKey = JSON.stringify(scope);
   const activeEvidence = useRef("");
@@ -145,35 +144,43 @@ export function QuestionDialog({
       alive = false;
     };
   }, [open, account.request, account.status?.planEnabled]);
-  async function submit(kind: "preview" | "ask") {
+  async function submit() {
     const expectedEvidence = activeEvidence.current;
+    const pending = new AbortController();
+    controller.current = pending;
     setBusy(true);
     setError("");
-    controller.current = new AbortController();
+    setAnswer("");
     try {
-      if (kind === "preview") {
-        revision.current = await prepare();
-        requestId.current = crypto.randomUUID();
+      const projectRevision = await prepare();
+      if (pending.signal.aborted || expectedEvidence !== activeEvidence.current)
+        return;
+      const outgoingId = crypto.randomUUID();
+      async function send(kind: "preview" | "ask", digest?: string) {
+        const r = await account.request("/api/tutor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind,
+            requestId: outgoingId,
+            question,
+            model,
+            projectRevision,
+            ...scope,
+            digest,
+          }),
+          signal: pending.signal,
+        });
+        const data = await r.json();
+        if (!r.ok) throw Error(data.error);
+        return data;
       }
-      const r = await account.request("/api/tutor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          kind,
-          requestId: requestId.current,
-          question,
-          model,
-          projectRevision: revision.current,
-          ...scope,
-          digest: kind === "ask" ? preview?.digest : undefined,
-        }),
-        signal: controller.current.signal,
-      });
-      const data = await r.json();
-      if (expectedEvidence !== activeEvidence.current) return;
-      if (!r.ok) throw Error(data.error);
-      if (kind === "preview") setPreview(data);
-      else setAnswer(data.text);
+      const outgoing = await send("preview");
+      if (pending.signal.aborted || expectedEvidence !== activeEvidence.current)
+        return;
+      setPreview(outgoing);
+      const response = await send("ask", outgoing.digest);
+      if (expectedEvidence === activeEvidence.current) setAnswer(response.text);
     } catch (e) {
       if (
         expectedEvidence === activeEvidence.current &&
@@ -181,7 +188,7 @@ export function QuestionDialog({
       )
         setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (controller.current === pending) setBusy(false);
     }
   }
   function renderAnswer() {
@@ -212,11 +219,26 @@ export function QuestionDialog({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent
+        className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+        onOpenAutoFocus={() => {
+          returnFocus.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
+        }}
+        onCloseAutoFocus={(event) => {
+          if (returnFocus.current?.isConnected) {
+            event.preventDefault();
+            returnFocus.current.focus();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Ask a question about this project or resource.
+            Ask about your project, understand a resource, or get a practice
+            hint.
           </DialogDescription>
         </DialogHeader>
         {!account.status?.planEnabled ? (
@@ -240,7 +262,7 @@ export function QuestionDialog({
           <>
             <Textarea
               aria-label="Question about Kubernetes evidence"
-              placeholder="What does this resource do, and what evidence should I inspect?"
+              placeholder="Ask a question or request a hint…"
               value={question}
               maxLength={2000}
               onChange={(e) => {
@@ -255,10 +277,10 @@ export function QuestionDialog({
                 Model settings
               </summary>
               <Select
+                disabled={busy}
                 value={model}
                 onValueChange={(v) => {
                   setModel(v);
-                  requestId.current = crypto.randomUUID();
                   setAnswer("");
                   setPreview(null);
                 }}
@@ -280,52 +302,12 @@ export function QuestionDialog({
                 {disabledReason}
               </p>
             )}
-            <p className="text-sm text-muted-foreground">
-              Your question and selected evidence are sent to OpenAI using your
-              ChatGPT plan. Review before sending; names and paths may be
-              sensitive.
-            </p>
             <Button
-              variant="outline"
               disabled={busy || !!disabledReason || !question.trim() || !model}
-              onClick={() => submit("preview")}
+              onClick={() => void submit()}
             >
-              Review request
+              {busy ? "Asking ChatGPT…" : "Send"}
             </Button>
-            {preview && (
-              <>
-                {preview.context.project?.live && (
-                  <p className="text-sm text-muted-foreground">
-                    Lab evidence captured at{" "}
-                    {preview.context.project.capturedAt}. The answer explains
-                    this captured state.
-                  </p>
-                )}
-                <p className="text-sm">
-                  This request includes your question and filtered project
-                  evidence. Secret data, configuration values, environment
-                  values, annotations, raw events and logs are excluded.
-                </p>
-                <details
-                  key={answer ? "answered" : "preview"}
-                  className="rounded-md border p-3"
-                >
-                  <summary className="cursor-pointer text-sm">
-                    Technical details
-                  </summary>
-                  <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-all text-xs">
-                    {JSON.stringify(
-                      { model, question: preview.question, ...preview.context },
-                      null,
-                      2,
-                    )}
-                  </pre>
-                </details>
-                <Button disabled={busy} onClick={() => submit("ask")}>
-                  Send question
-                </Button>
-              </>
-            )}
             {busy && (
               <Button
                 variant="outline"
@@ -337,7 +319,8 @@ export function QuestionDialog({
             {answer && (
               <div
                 className="rounded-md border p-4 whitespace-pre-wrap text-sm"
-                aria-label="AI explanation"
+                aria-label="ChatGPT reply"
+                role="status"
               >
                 {renderAnswer()}
               </div>
@@ -345,7 +328,7 @@ export function QuestionDialog({
           </>
         )}
         <p role="status" aria-live="polite" className="text-sm">
-          {busy ? "Working…" : error}
+          {error}
         </p>
         <a
           className="text-sm underline"

@@ -1,5 +1,0 @@
-{
-  "status": "PASS",
-  "ownedCliStopped": true,
-  "boundary": "Only verified installed Node22 CLI at owned loopback3124 stopped; no broad process kill."
-}

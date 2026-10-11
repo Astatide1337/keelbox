@@ -1,6 +1,0 @@
-{
-  "status": "PASS",
-  "textFiles": 218,
-  "findings": [],
-  "scope": "Checkout tracked/unignored text <=5MB; supported markers only, not an exhaustive semantic detector. No external credential files read/searched."
-}

@@ -1,1 +1,0 @@
-{"status":"PASS","artifactSha256":"6ad2a568f6bc109525337619f151b851983b5d706858cc1218dda6bf92bce089","files":2881,"textFilesScanned":2865,"bytes":140282036,"installHooks":false,"staticAssets":true,"license":"MIT","scanScope":"path exclusions and supported credential markers in text files <=5MB; not an exhaustive semantic secret detector"}

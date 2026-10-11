@@ -7,10 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { RelationshipEvidence } from "./inspector/RelationshipEvidence";
-import {
-  resourceOrigin,
-  resourcePresentation,
-} from "@/lib/domain/presentation";
+import { resourcePresentation } from "@/lib/domain/presentation";
 import { SourceEditor, type EditorContext } from "./SourceEditor";
 import {
   at,
@@ -44,7 +41,6 @@ export function ResourceInspector({
   onTab,
   onSelect,
   onEdit,
-  onAsk,
   onHint,
   diagnostics,
   relationships,
@@ -65,7 +61,6 @@ export function ResourceInspector({
   onTab: (t: string) => void;
   onSelect: (id: string) => void;
   onEdit: (id: string, value: string) => void;
-  onAsk?: () => void;
   onHint: () => void;
   diagnostics: Diagnostic[];
   relationships: Relationship[];
@@ -100,7 +95,6 @@ export function ResourceInspector({
   );
   const statuses = list(at(displayed, "status", "containerStatuses"));
   const authored = source.files.some((f) => f.id === file?.id);
-  const origin = resourceOrigin(resource, source);
   const presentation = resourcePresentation(
     resource,
     displayed
@@ -160,6 +154,11 @@ export function ResourceInspector({
       at(capturedResource(source, r), "metadata", "uid") === parentRef.uid,
   );
   const deploymentName = deployment?.name;
+  const differences =
+    file && displayed ? configurationDifferences(resource.raw, displayed) : [];
+  useEffect(() => {
+    if (tab === "Diff" && !differences.length) onTab("Overview");
+  }, [tab, differences.length, onTab]);
   function ownerLink() {
     if (deployment) {
       onSelect(deployment.id);
@@ -178,9 +177,6 @@ export function ResourceInspector({
             <span>·</span>
             <span>{resource.apiVersion}</span>
           </div>
-          <Badge variant="outline" className="mt-3">
-            {exercise ? "Practice copy" : origin}
-          </Badge>
         </div>
         {onClose && (
           <Button
@@ -208,22 +204,23 @@ export function ResourceInspector({
                 : "Observation unavailable"}
         </small>
       </div>
-      {onAsk && (
-        <Button variant="outline" className="m-4" onClick={onAsk}>
-          {exercise
-            ? "Ask for investigation guidance"
-            : "Ask about this resource"}
-        </Button>
-      )}
-      <Tabs value={tab} onValueChange={onTab}>
+      <Tabs
+        value={tab === "Diff" && !differences.length ? "Overview" : tab}
+        onValueChange={onTab}
+      >
         <TabsList className="inspector-tabs">
-          {["Overview", "YAML", "Events", "Logs", "Relationships", "Diff"].map(
-            (t) => (
-              <TabsTrigger key={t} value={t}>
-                {t}
-              </TabsTrigger>
-            ),
-          )}
+          {[
+            "Overview",
+            "YAML",
+            "Events",
+            "Logs",
+            "Relationships",
+            ...(differences.length ? ["Diff"] : []),
+          ].map((t) => (
+            <TabsTrigger key={t} value={t}>
+              {t === "Diff" ? "Changes" : t}
+            </TabsTrigger>
+          ))}
         </TabsList>
         <TabsContent value="Overview" className="pane-padding">
           <dl className="facts">
@@ -231,8 +228,6 @@ export function ResourceInspector({
             <dd className="break-all">{uid || "Not captured"}</dd>
             <dt>Age</dt>
             <dd>{resourceAge(displayed, source.captureEndedAt)}</dd>
-            <dt>Provenance</dt>
-            <dd>{origin}</dd>
             <dt>Observed</dt>
             <dd>{source.captureEndedAt || "Unavailable"}</dd>
           </dl>
@@ -341,132 +336,101 @@ export function ResourceInspector({
               </CardContent>
             </Card>
           )}
-          <Card className="evidence-card">
-            <CardHeader>
-              <CardTitle>{resource.kind} details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="facts">
-                {resource.kind === "Pod" ? (
-                  <>
-                    <dt>Phase</dt>
-                    <dd>
-                      {text(at(displayed, "status", "phase")) || "Unknown"}
-                    </dd>
-                    <dt>Ready condition</dt>
-                    <dd>
-                      {ready ? String(ready.status) : "Unknown · unavailable"}
-                    </dd>
-                    <dt>Containers</dt>
-                    <dd>
-                      {statuses.length
-                        ? statuses
-                            .map(
-                              (c) =>
-                                `${c.name}: ready=${c.ready ?? "unknown"}, restarts=${c.restartCount ?? "unknown"}`,
-                            )
-                            .join("; ")
-                        : "Unknown · fields unavailable"}
-                    </dd>
-                  </>
-                ) : resource.kind === "Deployment" ? (
-                  <>
-                    <dt>Replicas</dt>
-                    <dd>
-                      {String(
-                        at(resource.raw, "spec", "replicas") ?? "Unknown",
-                      )}{" "}
-                      declared
-                    </dd>
-                    <dt>Ready replicas</dt>
-                    <dd>
-                      {String(
-                        at(displayed, "status", "readyReplicas") ??
-                          "Unknown · unavailable",
-                      )}
-                    </dd>
-                  </>
-                ) : resource.kind === "Service" ? (
-                  <>
-                    <dt>Selector</dt>
-                    <dd>
-                      {JSON.stringify(
-                        at(resource.raw, "spec", "selector") ?? "Unknown",
-                      )}
-                    </dd>
-                    <dt>Ready endpoints</dt>
-                    <dd>
-                      {exercise ||
-                      coverage(source, "EndpointSlice", resource.namespace)
-                        ?.state === "captured"
-                        ? String(
-                            (exercise?.resources ?? source.resources)
-                              .filter(
-                                (r) =>
-                                  r.kind === "EndpointSlice" &&
-                                  at(r, "metadata", "namespace") ===
-                                    resource.namespace &&
-                                  at(
-                                    r,
-                                    "metadata",
-                                    "labels",
-                                    "kubernetes.io/service-name",
-                                  ) === resource.name,
+          {resource.kind !== "Deployment" && (
+            <Card className="evidence-card">
+              <CardHeader>
+                <CardTitle>{resource.kind} details</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="facts">
+                  {resource.kind === "Pod" ? (
+                    <>
+                      <dt>Phase</dt>
+                      <dd>
+                        {text(at(displayed, "status", "phase")) || "Unknown"}
+                      </dd>
+                      <dt>Ready condition</dt>
+                      <dd>
+                        {ready ? String(ready.status) : "Unknown · unavailable"}
+                      </dd>
+                      <dt>Containers</dt>
+                      <dd>
+                        {statuses.length
+                          ? statuses
+                              .map(
+                                (c) =>
+                                  `${c.name}: ready=${c.ready ?? "unknown"}, restarts=${c.restartCount ?? "unknown"}`,
                               )
-                              .flatMap((r) => list(r.endpoints))
-                              .filter(
-                                (e) =>
-                                  at(e, "conditions", "ready") === true &&
-                                  at(e, "conditions", "terminating") !== true,
-                              ).length,
-                          )
-                        : "Unknown · EndpointSlices unavailable"}
-                    </dd>
-                  </>
-                ) : (
-                  <>
-                    <dt>Health</dt>
-                    <dd>No general health assertion for {resource.kind}</dd>
-                  </>
+                              .join("; ")
+                          : "Unknown · fields unavailable"}
+                      </dd>
+                    </>
+                  ) : resource.kind === "Service" ? (
+                    <>
+                      <dt>Selector</dt>
+                      <dd>
+                        {JSON.stringify(
+                          at(resource.raw, "spec", "selector") ?? "Unknown",
+                        )}
+                      </dd>
+                      <dt>Ready endpoints</dt>
+                      <dd>
+                        {exercise ||
+                        coverage(source, "EndpointSlice", resource.namespace)
+                          ?.state === "captured"
+                          ? String(
+                              (exercise?.resources ?? source.resources)
+                                .filter(
+                                  (r) =>
+                                    r.kind === "EndpointSlice" &&
+                                    at(r, "metadata", "namespace") ===
+                                      resource.namespace &&
+                                    at(
+                                      r,
+                                      "metadata",
+                                      "labels",
+                                      "kubernetes.io/service-name",
+                                    ) === resource.name,
+                                )
+                                .flatMap((r) => list(r.endpoints))
+                                .filter(
+                                  (e) =>
+                                    at(e, "conditions", "ready") === true &&
+                                    at(e, "conditions", "terminating") !== true,
+                                ).length,
+                            )
+                          : "Unknown · EndpointSlices unavailable"}
+                      </dd>
+                    </>
+                  ) : (
+                    <>
+                      <dt>Health</dt>
+                      <dd>No general health assertion for {resource.kind}</dd>
+                    </>
+                  )}
+                </dl>
+                {resource.kind === "Pod" && (
+                  <details className="mt-3 text-sm">
+                    <summary className="cursor-pointer">
+                      Infrastructure details
+                    </summary>
+                    <dl className="facts">
+                      <dt>Node</dt>
+                      <dd>
+                        {text(at(displayed, "spec", "nodeName")) ||
+                          "Unavailable in snapshot"}
+                      </dd>
+                      <dt>IP</dt>
+                      <dd>
+                        {text(at(displayed, "status", "podIP")) ||
+                          "Unavailable in snapshot"}
+                      </dd>
+                    </dl>
+                  </details>
                 )}
-              </dl>
-              {resource.kind === "Pod" && (
-                <details className="mt-3 text-sm">
-                  <summary className="cursor-pointer">
-                    Infrastructure details
-                  </summary>
-                  <dl className="facts">
-                    <dt>Node</dt>
-                    <dd>
-                      {text(at(displayed, "spec", "nodeName")) ||
-                        "Unavailable in snapshot"}
-                    </dd>
-                    <dt>IP</dt>
-                    <dd>
-                      {text(at(displayed, "status", "podIP")) ||
-                        "Unavailable in snapshot"}
-                    </dd>
-                  </dl>
-                </details>
-              )}
-            </CardContent>
-          </Card>
-          <RelationshipEvidence
-            relationships={relationships}
-            files={files}
-            focusId={focusRelationship}
-            onEvidence={(ref) => {
-              focusedRef.current = null;
-              setRequestedRef(ref);
-              const target = resources.find(
-                (r) =>
-                  r.source.fileId === ref.fileId &&
-                  r.source.document === ref.document,
-              );
-              if (target) onSelect(target.id);
-              onTab("YAML");
-            }}
-          />
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         <TabsContent value="YAML" className="yaml-pane">
           {file && onSave && (
@@ -553,13 +517,16 @@ export function ResourceInspector({
             {exercise
               ? "Repairs affect this practice copy only."
               : file
-                ? "Local analysis draft. Captured observations and source import are unchanged."
+                ? null
                 : "No original authored file is available."}
           </div>
         </TabsContent>
         <TabsContent value="Relationships" className="pane-padding">
           <RelationshipEvidence
             relationships={relationships}
+            resources={resources}
+            resourceId={resource.id}
+            onResource={onSelect}
             files={files}
             focusId={focusRelationship}
             onEvidence={(ref) => {
@@ -575,38 +542,15 @@ export function ResourceInspector({
           />
         </TabsContent>
         <TabsContent value="Diff" className="pane-padding">
-          <h3>Desired / captured configuration</h3>
-          {!file || !displayed ? (
-            <p>
-              Both authored configuration and a captured API object are
-              required. No desired-state file is invented for generated
-              resources.
-            </p>
-          ) : (
-            <>
-              <p className="text-xs text-muted-foreground">
-                API bookkeeping and status excluded. Defaults remain visible.
-                Capture {source.captureEndedAt}.
-              </p>
-              {configurationDifferences(resource.raw, displayed).length ? (
-                configurationDifferences(resource.raw, displayed).map((d) => (
-                  <div className="event" key={d.path}>
-                    <strong>{d.path}</strong>
-                    <pre className="whitespace-pre-wrap break-all">{`Desired: ${JSON.stringify(d.desired) ?? "(absent)"}\nCaptured: ${JSON.stringify(d.observed) ?? "(absent)"}`}</pre>
-                  </div>
-                ))
-              ) : (
-                <p>No normalized configuration differences.</p>
-              )}
-            </>
-          )}
+          <h3>Changes from your manifest</h3>
+          {differences.map((difference) => (
+            <div className="event" key={difference.path}>
+              <strong>{difference.path}</strong>
+              <pre className="whitespace-pre-wrap break-all">{`Manifest: ${JSON.stringify(difference.desired) ?? "(absent)"}\nSnapshot: ${JSON.stringify(difference.observed) ?? "(absent)"}`}</pre>
+            </div>
+          ))}
         </TabsContent>
         <TabsContent value="Events" className="pane-padding">
-          <Badge variant="outline">
-            {exercise
-              ? "Synthetic scenario events"
-              : "Captured Kubernetes events"}
-          </Badge>
           {eventData.length ? (
             eventData.map((raw, i) => {
               const e = raw as ObjectMap;
@@ -630,12 +574,16 @@ export function ResourceInspector({
                   : coverage(source, "Event", resource.namespace)?.state ===
                       "captured"
                     ? "No events captured for this resource"
-                    : "Events unavailable"}
+                    : "No events recorded"}
               </strong>
               <p>
                 {exercise
                   ? "Select the affected Pod for kubelet evidence."
-                  : "Missing or old events do not establish current health or current probe failure."}
+                  : source.origin === "bundled"
+                    ? "This example has no recorded events. Open Practice to create a live local lab."
+                    : source.origin === "manifests"
+                      ? "Manifests contain configuration. Open Practice to see events from a local lab."
+                      : "No events were included for this resource in the snapshot."}
               </p>
             </div>
           )}
@@ -653,12 +601,13 @@ export function ResourceInspector({
             <div className="empty">
               <strong>
                 {["Pod", "Deployment"].includes(resource.kind)
-                  ? "Logs unavailable"
+                  ? "No logs recorded"
                   : "This resource has no container logs"}
               </strong>
               <p>
-                Logs were omitted from the capture. Unavailable is not a healthy
-                empty log.
+                {["Pod", "Deployment"].includes(resource.kind)
+                  ? "Open Practice to create a local lab and view container logs."
+                  : "Select a Pod to view container logs."}
               </p>
             </div>
           )}

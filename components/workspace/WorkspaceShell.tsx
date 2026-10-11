@@ -1,4 +1,5 @@
 "use client";
+import { Sparkles } from "lucide-react";
 import { ManifestFileEditor } from "./ManifestFileEditor";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { Boxes, FileCode2 } from "lucide-react";
@@ -458,15 +459,26 @@ function ProfileWorkspace() {
   ];
   return (
     <>
+      <Button
+        size="icon"
+        className="fixed bottom-6 right-6 z-40 size-14 rounded-full shadow-lg"
+        aria-label="Ask ChatGPT"
+        title="Ask ChatGPT"
+        onClick={() => {
+          if (activeLab && labAvailable) setAskRequest((n) => n + 1);
+          else {
+            setQuestionScope({});
+            setQuestionOpen(true);
+          }
+        }}
+      >
+        <Sparkles className="size-6" />
+      </Button>
       <QuestionDialog
         retentionKey={snapshotDigest(source)}
         open={questionOpen}
         onOpenChange={setQuestionOpen}
-        title={
-          questionScope.resourceId
-            ? "Ask about this resource"
-            : "Ask about this project"
-        }
+        title={questionScope.resourceId ? "Ask about this resource" : "ChatGPT"}
         evidenceKey={sourceKey}
         scope={questionScope}
         disabledReason={
@@ -508,13 +520,6 @@ function ProfileWorkspace() {
             onImport={() => {
               setNotice("");
               setImportOpen(true);
-            }}
-            onAsk={() => {
-              if (activeLab && labAvailable) setAskRequest((n) => n + 1);
-              else {
-                setQuestionScope({});
-                setQuestionOpen(true);
-              }
             }}
             onExport={() =>
               download("original-source.json", JSON.stringify(source, null, 2))
@@ -686,11 +691,6 @@ function ProfileWorkspace() {
                               }
                             }}
                             observation={observed}
-                            provenance={
-                              source.origin === "manifests"
-                                ? "Declared manifests · inferred relationships"
-                                : "Captured snapshot · inferred relationships"
-                            }
                             endpointCoverage={(ns) =>
                               coverage(source, "EndpointSlice", ns)?.state ===
                               "captured"
@@ -876,13 +876,6 @@ function ProfileWorkspace() {
                         ws.setSelected(null);
                         setFocusRelationship(null);
                         setMobileInspector(false);
-                      }}
-                      onAsk={() => {
-                        setQuestionScope({
-                          resourceId: ws.resource?.id,
-                          relationshipId: focusRelationship ?? undefined,
-                        });
-                        setQuestionOpen(true);
                       }}
                       draftDirty={dirty}
                       onSave={saveDraft}

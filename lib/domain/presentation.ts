@@ -66,8 +66,10 @@ export function resourcePresentation(
     return {
       label:
         typeof ready === "number"
-          ? `${ready} / ${desired} ready`
-          : `${desired} replicas declared`,
+          ? `${ready} of ${desired} Pods ready`
+          : typeof desired === "number"
+            ? `${desired} desired Pod${desired === 1 ? "" : "s"}`
+            : "Pod count unavailable",
       tone:
         typeof ready === "number"
           ? ready === desired

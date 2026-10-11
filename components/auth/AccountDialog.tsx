@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { Toast } from "radix-ui";
+import { X } from "lucide-react";
 import { useAccount } from "./AccountProvider";
 import {
   Dialog,
@@ -9,13 +11,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 export function AccountDialog({
   open,
   onOpenChange,
@@ -26,11 +21,25 @@ export function AccountDialog({
   const account = useAccount(),
     s = account.status;
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState(""),
-    [models, setModels] = useState<{ id: string; name: string }[]>([]),
-    [model, setModel] = useState("");
+    [message, setMessage] = useState("");
   const [attempt, setAttempt] = useState<string | null>(null),
     popupRef = useRef<Window | null>(null);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const welcomedProfile = useRef<string | null>(null);
+  useEffect(() => {
+    setWelcomeOpen(false);
+  }, [s?.profile?.key]);
+  useEffect(() => {
+    if (
+      !open &&
+      s?.needsWelcome &&
+      s.profile &&
+      welcomedProfile.current !== s.profile.key
+    ) {
+      welcomedProfile.current = s.profile.key;
+      setWelcomeOpen(true);
+    }
+  }, [open, s?.needsWelcome, s?.profile?.key]);
   useEffect(() => {
     if (!attempt) return;
     let alive = true;
@@ -51,6 +60,7 @@ export function AccountDialog({
               : (d.error ?? "Sign-in cancelled."),
           );
           await account.refresh();
+          if (d.state === "completed") onOpenChange(false);
         }
       } catch (e) {
         if (alive) {
@@ -63,11 +73,7 @@ export function AccountDialog({
       alive = false;
       clearInterval(timer);
     };
-  }, [attempt, account.request, account.refresh]);
-  useEffect(() => {
-    setModels([]);
-    setModel("");
-  }, [s?.profile?.key]);
+  }, [attempt, account.request, account.refresh, onOpenChange]);
   async function operation(body: unknown) {
     const signingIn =
       !!body &&
@@ -114,7 +120,7 @@ export function AccountDialog({
           data.text ??
             (data.revoked === false
               ? "Signed out locally. Remote revocation could not be confirmed. Manage access in ChatGPT settings."
-              : "Done."),
+              : ""),
         );
         await account.refresh();
       }
@@ -125,166 +131,117 @@ export function AccountDialog({
       setBusy(false);
     }
   }
-  async function loadModels() {
-    setBusy(true);
-    try {
-      const r = await account.request("/api/auth?models=1");
-      const data = await r.json();
-      if (!r.ok) throw Error(data.error);
-      setModels(data.models);
-      setModel(data.models[0]?.id ?? "");
-      setMessage(
-        data.models.length
-          ? "Authorized models loaded."
-          : "No authorized models were returned for this registration.",
-      );
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   if (!s?.enabled) return null;
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Account</DialogTitle>
-          <DialogDescription>Manage your ChatGPT connection.</DialogDescription>
-        </DialogHeader>
-        {account.error && <p role="alert">{account.error}</p>}
-        {
-          <>
-            <div className="rounded-md border p-4">
-              <p className="font-medium">
-                {s.profile?.label ?? "Not signed in"}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {s.planEnabled
-                  ? "Using your ChatGPT plan"
-                  : s.profile
-                    ? "Identity connected; ChatGPT plan inference is unavailable."
-                    : "Continue with ChatGPT to connect this installation."}
-              </p>
-            </div>
-            {s.needsWelcome && (
-              <div className="rounded-md border p-3 text-sm">
-                <p>
-                  You’re using your ChatGPT plan. Subscription eligibility and
-                  usage limits apply.
+    <Toast.Provider duration={8000}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          onCloseAutoFocus={(event) => {
+            const trigger = document.querySelector<HTMLButtonElement>(
+              'button[aria-label="Open account"]',
+            );
+            if (trigger) {
+              event.preventDefault();
+              trigger.focus();
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>Account</DialogTitle>
+            <DialogDescription>
+              Manage your ChatGPT connection.
+            </DialogDescription>
+          </DialogHeader>
+          {account.error && <p role="alert">{account.error}</p>}
+          {
+            <>
+              <div className="rounded-md border p-4">
+                <p className="font-medium">
+                  {s.profile?.label.replace(/ · .{6}$/, "") ?? "Not signed in"}
                 </p>
-                <Button
-                  variant="outline"
-                  className="mt-2"
-                  disabled={busy}
-                  onClick={() => operation({ kind: "welcome" })}
-                >
-                  Got it
-                </Button>
+                {!s.planEnabled && (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {s.profile
+                      ? "ChatGPT questions are unavailable for this connection."
+                      : "Continue with ChatGPT to connect this installation."}
+                  </p>
+                )}
               </div>
-            )}
-            {!s.profile && (
-              <Button
-                disabled={busy}
-                onClick={() => operation({ kind: "login" })}
-              >
-                Continue with ChatGPT
-              </Button>
-            )}
-            {s.profile && (
-              <Button
-                variant="ghost"
-                disabled={busy}
-                onClick={() => operation({ kind: "login" })}
-              >
-                Change account
-              </Button>
-            )}
-            {s.accounts
-              .filter((a) => !a.active)
-              .map((a) => (
+              {!s.profile && (
                 <Button
-                  key={a.id}
-                  variant="outline"
-                  disabled={busy || a.active}
-                  onClick={() => operation({ kind: "login", account: a.id })}
+                  disabled={busy}
+                  onClick={() => operation({ kind: "login" })}
                 >
-                  {a.active ? "Active: " : "Switch: "}
-                  {a.label}
+                  Continue with ChatGPT
                 </Button>
-              ))}
-            {s.profile && (
-              <>
+              )}
+              {s.profile && (
                 <Button
                   variant="ghost"
                   disabled={busy}
-                  onClick={() => operation({ kind: "signout" })}
+                  onClick={() => operation({ kind: "login" })}
                 >
-                  Sign out
+                  Change account
                 </Button>
-              </>
-            )}
-            {s.planEnabled && (
-              <details>
-                <summary className="cursor-pointer text-sm">
-                  Connection diagnostics
-                </summary>
-                <Button variant="outline" disabled={busy} onClick={loadModels}>
-                  Load authorized models
-                </Button>
-                {models.length > 0 && (
-                  <>
-                    <Select value={model} onValueChange={setModel}>
-                      <SelectTrigger aria-label="Inference test model">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {models.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      disabled={busy || !model}
-                      onClick={() =>
-                        operation({ kind: "test-inference", model })
-                      }
-                    >
-                      Test inference · no cluster data
-                    </Button>
-                  </>
-                )}
-              </details>
-            )}
-            <a
-              className="text-sm underline"
-              href="https://chatgpt.com/settings/usage"
-              target="_blank"
-              rel="noreferrer"
+              )}
+              {s.profile && (
+                <>
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => operation({ kind: "signout" })}
+                  >
+                    Sign out
+                  </Button>
+                </>
+              )}
+              <a
+                className="text-sm underline"
+                href="https://chatgpt.com/settings/usage"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Manage usage
+              </a>
+              {s.issues.map((issue, i) => (
+                <p className="text-sm" key={i}>
+                  {issue}
+                </p>
+              ))}
+            </>
+          }
+          {attempt && (
+            <Button
+              variant="outline"
+              onClick={() => operation({ kind: "cancel", attemptId: attempt })}
             >
-              Manage usage
-            </a>
-            {s.issues.map((issue, i) => (
-              <p className="text-sm" key={i}>
-                {issue}
-              </p>
-            ))}
-          </>
-        }
-        {attempt && (
-          <Button
-            variant="outline"
-            onClick={() => operation({ kind: "cancel", attemptId: attempt })}
-          >
-            Cancel sign-in
+              Cancel sign-in
+            </Button>
+          )}
+          <p role="status" aria-live="polite" className="text-sm break-words">
+            {busy ? "Working…" : message}
+          </p>
+        </DialogContent>
+      </Dialog>
+      <Toast.Root
+        open={welcomeOpen}
+        onOpenChange={(next) => {
+          setWelcomeOpen(next);
+          if (!next) void operation({ kind: "welcome" });
+        }}
+        className="flex items-start gap-3 rounded-lg border bg-background p-4 text-sm shadow-lg"
+      >
+        <Toast.Description className="flex-1">
+          You’re using your ChatGPT plan. Subscription eligibility and usage
+          limits apply.
+        </Toast.Description>
+        <Toast.Close asChild>
+          <Button variant="ghost" size="icon" aria-label="Dismiss plan notice">
+            <X />
           </Button>
-        )}
-        <p role="status" aria-live="polite" className="text-sm break-words">
-          {busy ? "Working…" : message}
-        </p>
-      </DialogContent>
-    </Dialog>
+        </Toast.Close>
+      </Toast.Root>
+      <Toast.Viewport className="fixed bottom-4 right-4 z-50 m-0 flex w-[calc(100%-2rem)] max-w-sm list-none flex-col gap-2 outline-none" />
+    </Toast.Provider>
   );
 }

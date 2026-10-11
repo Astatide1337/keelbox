@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "packageManager": "pnpm@11.1.2",
   "scripts": {
-    "dev": "tsx cli/index.ts start",
-    "cli": "tsx cli/index.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx cli/index.ts start",
+    "cli": "node --env-file-if-exists=.env --import tsx cli/index.ts",
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/domain/*.test.ts tests/server/*.test.ts",
@@ -59,7 +59,6 @@
     "examples/market-data",
     "!examples/market-data/**/__pycache__/**",
     "!examples/market-data/**/*.pyc",
-    "SETUP.md",
     "README.md",
     "THIRD_PARTY_NOTICES.md",
     "LICENSE"

@@ -29,7 +29,6 @@ export function AppHeader({
   onExport,
   onConfigurePractice,
   saveError,
-  onAsk,
   onMenu,
   navigationTrigger,
   recentProjects = [],
@@ -44,7 +43,6 @@ export function AppHeader({
   onExport: () => void;
   onConfigurePractice: () => void;
   saveError?: string;
-  onAsk?: () => void;
   onMenu: () => void;
   navigationTrigger: RefObject<HTMLButtonElement | null>;
   recentProjects?: Snapshot[];
@@ -106,13 +104,6 @@ export function AppHeader({
                 {project.label}
               </DropdownMenuItem>
             ))}
-          {account.status?.enabled && (
-            <DropdownMenuItem onSelect={onAsk}>
-              {environment === "lab" && labAvailable
-                ? "Ask about this lab"
-                : "Ask about this project"}
-            </DropdownMenuItem>
-          )}
           <DropdownMenuItem onSelect={onImport}>
             Import manifests or snapshot
           </DropdownMenuItem>

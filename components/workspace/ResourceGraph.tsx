@@ -193,13 +193,13 @@ export function ResourceGraph({
   }
   return (
     <div className={`graph-canvas ${stale ? "stale" : ""}`}>
-      <div className="graph-caption">
-        {stale
-          ? (staleReason ?? "Previous graph · source invalid")
-          : observation
-            ? (provenance ?? "Captured state + inferred relationships")
-            : "Relationships inferred from manifests"}
-      </div>
+      {(stale || provenance === "Live lab state") && (
+        <div className="graph-caption">
+          {stale
+            ? (staleReason ?? "Previous graph · source invalid")
+            : provenance}
+        </div>
+      )}
       <div className="graph-actions">
         <Button
           size="sm"

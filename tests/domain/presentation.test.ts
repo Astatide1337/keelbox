@@ -115,7 +115,10 @@ test("live zero readiness and terminating endpoints do not become healthy", asyn
       },
     ],
   };
-  assert.equal(resourcePresentation(dep, observation).label, "0 / 2 ready");
+  assert.equal(
+    resourcePresentation(dep, observation).label,
+    "0 of 2 Pods ready",
+  );
   assert.equal(resourcePresentation(dep, observation).tone, "warning");
   assert.equal(
     resourcePresentation(service, observation, true).label,

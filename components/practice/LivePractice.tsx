@@ -203,10 +203,13 @@ export function LivePractice({
   const [helpField, setHelpField] = useState<string | undefined>(undefined);
   const [selectedEdge, setSelectedEdge] = useState<Relationship | null>(null);
   const notebookScope = useRef("");
+  const [projectQuestion, setProjectQuestion] = useState(false);
   const initialAsk = useRef(askRequest);
   useEffect(() => {
     if (askRequest !== initialAsk.current) {
       initialAsk.current = askRequest;
+      setProjectQuestion(true);
+      setHelpField(undefined);
       setQuestionOpen(true);
     }
   }, [askRequest]);
@@ -1456,6 +1459,7 @@ export function LivePractice({
                           variant="link"
                           disabled={stale || busy}
                           onClick={() => {
+                            setProjectQuestion(false);
                             setHelpField(undefined);
                             setQuestionOpen(true);
                           }}
@@ -1669,22 +1673,10 @@ export function LivePractice({
           minSize="25%"
         >
           <section className="live-inspector">
-            {account.status?.planEnabled && resource && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setHelpField(undefined);
-                  setQuestionOpen(true);
-                }}
-              >
-                Ask ChatGPT
-              </Button>
-            )}
             <QuestionDialog
               open={questionOpen}
               onOpenChange={setQuestionOpen}
-              title="Ask about this lab resource"
+              title="ChatGPT"
               retentionKey={sourceDigest}
               evidenceKey={[
                 lab.id,
@@ -1695,12 +1687,14 @@ export function LivePractice({
                 JSON.stringify(learning),
               ].join(":")}
               scope={{
-                relationshipId: selectedEdge?.id,
+                relationshipId: projectQuestion ? undefined : selectedEdge?.id,
                 learning,
                 labId: lab.id,
                 labGeneration: lab.generation,
                 labRevision: lab.revision,
-                resourceId: selected ?? undefined,
+                resourceId: projectQuestion
+                  ? undefined
+                  : (selected ?? undefined),
               }}
               disabledReason={
                 stale
@@ -1818,6 +1812,7 @@ export function LivePractice({
                                   variant="link"
                                   disabled={stale || busy}
                                   onClick={() => {
+                                    setProjectQuestion(false);
                                     setHelpField(
                                       `spec.${resource.kind === "Pod" ? "" : "template.spec."}containers.${index}.${probe}.httpGet.path`,
                                     );
