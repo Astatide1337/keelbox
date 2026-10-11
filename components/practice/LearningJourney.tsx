@@ -8,6 +8,7 @@ import {
   CardContent,
 } from "../ui/card";
 import { Textarea } from "../ui/textarea";
+import type { LiveIncidentId } from "@/lib/domain/live-incidents";
 import {
   lessonCopy,
   type LearningProgress,
@@ -27,7 +28,7 @@ export function LearningJourney({
   disabled,
   dirty,
 }: {
-  incident: "readiness" | "liveness" | null;
+  incident: LiveIncidentId | null;
   completed: boolean;
   progress: LearningProgress;
   onChange: (value: LearningProgress) => void;
@@ -166,19 +167,26 @@ export function LearningJourney({
             ))}
             {progress.solutionRequested && (
               <p className="rounded border p-3 text-sm">
-                Restore the selected container's original {incident} HTTP probe
-                path
-                {baselinePath ? (
+                {incident === "readiness" || incident === "liveness" ? (
                   <>
-                    {" "}
-                    <code>{baselinePath}</code>
+                    Restore the selected container's original {incident} HTTP
+                    probe path
+                    {baselinePath ? (
+                      <>
+                        {" "}
+                        <code>{baselinePath}</code>
+                      </>
+                    ) : (
+                      " from the reviewed baseline"
+                    )}
+                    . Keep required probes, replicas, images, selectors, and
+                    configuration. Observe the rollout and then run checks.
                   </>
+                ) : incident === "market-data-stale" ? (
+                  "Resume synthetic sequence updates through the reviewed producer control and verify that the consumer observes a later sequence before it returns Ready."
                 ) : (
-                  " from Healthy baseline"
+                  "Reapply the reviewed baseline for this exact incident and verify the workload, Service endpoints, and HTTP request recover."
                 )}
-                . Keep required probes, replicas, images, selectors and
-                configuration. Apply the Deployment repair; observe the rollout
-                and then run deterministic checks.
               </p>
             )}
             {completed && (
@@ -187,7 +195,11 @@ export function LearningJourney({
                   The runtime awarded recovery after its recorded checks passed.{" "}
                   {incident === "readiness"
                     ? "The corrected readiness contract allows the healthy Pods to become eligible backends."
-                    : "The corrected liveness contract stops repeated probe-triggered replacement. Old restart counts can remain; stability over the check window matters."}{" "}
+                    : incident === "liveness"
+                      ? "The corrected liveness contract stops repeated probe-triggered replacement. Old restart counts can remain; stability over the check window matters."
+                      : incident === "market-data-stale"
+                        ? "The producer remained live while its synthetic quote sequence stopped advancing. Recovery required a later sequence and consumer readiness."
+                        : "Structured runtime evidence identified a fault in the selected Kubernetes resource and confirmed recovery after restoring the reviewed baseline."}{" "}
                   Compare the captured evidence below. These are bounded
                   observations, not a complete history.
                 </p>

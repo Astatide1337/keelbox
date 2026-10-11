@@ -55,9 +55,18 @@ try {
   for (const required of [
     "README.md",
     "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "dist/cli/index.cjs",
     "dist/ui/server.js",
     "SETUP.md",
+    "examples/market-data/README.md",
+    "examples/market-data/kustomization.yaml",
+    "examples/market-data/manifests/producer-settings.yaml",
+    "examples/market-data/src/producer.py",
+    "examples/market-data/src/consumer.py",
+    "examples/market-data/tests/test_local.py",
+    "examples/market-data/tools/measure_detection.py",
+    "dist/ui/licenses/@fontsource-variable__inter-5.3.0/LICENSE",
   ])
     if (!paths.includes(required))
       throw Error("Missing package file " + required);
@@ -65,6 +74,7 @@ try {
     throw Error("Missing static UI assets.");
   const forbidden = paths.filter(
     (p) =>
+      /(^|\/)__pycache__(\/|$)|\.py[cod]$/i.test(p) ||
       /^(?!dist\/ui\/node_modules\/)(?:.*\/)?(?:server\.json|minikube-session\.json|credentials[^/]*\.json|auth-state\.json|.*\.kubeconfig|\.env[^/]*|.*\.log)$/.test(
         p,
       ) ||
@@ -81,6 +91,10 @@ try {
     bytes += file.length;
     if (file.length > 5_000_000 || file.includes(0)) continue;
     const content = file.toString("utf8");
+    if (/\/home\/[a-zA-Z0-9._-]+\//.test(content))
+      throw Error(
+        "Nonportable home-directory path found in packaged file " + p,
+      );
     if (
       /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(content) ||
       /(?:sk-proj-|ghp_|github_pat_)[a-zA-Z0-9_]{25,}/.test(content)
@@ -88,6 +102,18 @@ try {
       throw Error("Credential marker found in packaged file " + p);
     checked++;
   }
+  const fontLicense = await readFile(
+    join(temp, "dist/ui/licenses/@fontsource-variable__inter-5.3.0/LICENSE"),
+    "utf8",
+  );
+  if (!fontLicense.includes("SIL OPEN FONT LICENSE Version 1.1"))
+    throw Error("Missing the full Inter SIL Open Font License 1.1 notice.");
+  const thirdPartyNotices = await readFile(
+    join(temp, "THIRD_PARTY_NOTICES.md"),
+    "utf8",
+  );
+  if (!thirdPartyNotices.includes("Inter variable font"))
+    throw Error("Third-party notice inventory omits the Inter font.");
   console.log(
     JSON.stringify({
       status: "PASS",

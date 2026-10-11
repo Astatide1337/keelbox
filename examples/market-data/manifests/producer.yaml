@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-producer
+spec:
+  type: ClusterIP
+  selector:
+    app: market-producer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-producer
+  labels:
+    app.kubernetes.io/part-of: waypoint-market-data-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: market-producer
+  template:
+    metadata:
+      labels:
+        app: market-producer
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: producer
+          image: python:3.12.15-slim-trixie
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-u", "/app/producer.py"]
+          ports:
+            - name: http
+              containerPort: 8080
+            # The process binds this control listener to Pod loopback only.
+            - name: control
+              containerPort: 8081
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: QUOTE_SYMBOL
+              valueFrom:
+                configMapKeyRef:
+                  name: market-producer-settings
+                  key: symbol
+            - name: UPDATE_INTERVAL_SECONDS
+              value: "0.5"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 48Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+              readOnly: true
+      volumes:
+        - name: app-code
+          configMap:
+            name: market-producer-code
+            defaultMode: 0444

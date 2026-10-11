@@ -17,13 +17,19 @@ import {
 } from "../ui/select";
 import { useAccount } from "../auth/AccountProvider";
 import type { IncidentRecipe } from "@/lib/domain/generated-incident";
+import {
+  incidentChoice,
+  type LiveIncidentChoice,
+} from "@/lib/domain/live-incidents";
 export function GenerateIncident({
   lab,
   busy,
+  available,
   onStart,
 }: {
   lab: { id: string; generation: number; revision: number };
   busy: boolean;
+  available: LiveIncidentChoice[];
   onStart: (recipe: IncidentRecipe, id: string) => void;
 }) {
   const account = useAccount();
@@ -97,14 +103,21 @@ export function GenerateIncident({
       <CardHeader>
         <CardTitle>Create an incident with ChatGPT</CardTitle>
         <CardDescription>
-          Design an investigation around this application’s probes and Services.
+          ChatGPT selects among Waypoint-validated incidents for this exact
+          workload. Waypoint supplies the fault, repair, and deterministic
+          checks; generated text cannot send commands or YAML to the cluster.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <p role="alert">{error}</p>}
         {!preview ? (
           <Button
-            disabled={busy || pending || !account.status?.planEnabled}
+            disabled={
+              busy ||
+              pending ||
+              !available.length ||
+              !account.status?.planEnabled
+            }
             onClick={prepare}
           >
             Review application summary
@@ -144,8 +157,22 @@ export function GenerateIncident({
             <p className="text-sm text-muted-foreground">
               {proposal.recipe.objective}
             </p>
+            <details open>
+              <summary className="cursor-pointer font-medium">
+                Review the validated fault and repair plan
+              </summary>
+              <p className="mt-2 text-sm">
+                {incidentChoice(proposal.recipe.incident).operation}
+              </p>
+              <p className="mt-2 text-sm">
+                Exact target: <code>{proposal.recipe.target}</code>
+              </p>
+              <p className="mt-2 text-sm">
+                Repair: {incidentChoice(proposal.recipe.incident).repair}
+              </p>
+            </details>
             <details>
-              <summary>Recovery checks</summary>
+              <summary>Code-defined recovery checks</summary>
               <ul>
                 {proposal.recipe.grader.map((c) => (
                   <li key={c}>{c}</li>

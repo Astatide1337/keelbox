@@ -1,5 +1,5 @@
 {
-  "name": "kubernetes-learning-playground",
+  "name": "waypoint-k8s",
   "version": "0.1.0",
   "packageManager": "pnpm@11.1.2",
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "tsx --test tests/domain/*.test.ts tests/server/*.test.ts",
     "test:e2e": "playwright test",
     "format": "prettier --write app components lib cli tests *.json *.ts *.mjs",
-    "package:build": "node scripts/clean-package.mjs && next build && node scripts/package.mjs",
+    "package:build": "node scripts/clean-package.mjs && next build --webpack && node scripts/package.mjs && node scripts/normalize-standalone.mjs && node scripts/collect-licenses.mjs",
     "prepack": "npm run package:build",
     "package:verify": "node scripts/verify-package.mjs"
   },
@@ -56,8 +56,10 @@
     "dist/cli",
     "dist/ui",
     "examples/local-http",
+    "examples/market-data",
     "SETUP.md",
     "README.md",
+    "THIRD_PARTY_NOTICES.md",
     "LICENSE"
   ],
   "license": "MIT",

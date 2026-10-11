@@ -1,0 +1,910 @@
+{
+  "startedAt": "2026-10-11T07:07:47.947Z",
+  "environment": {
+    "node": [
+      {
+        "architecture": "amd64",
+        "kubeletVersion": "v1.37.0",
+        "capacity": {
+          "cpu": "16",
+          "ephemeral-storage": "499568857088",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32138788Ki",
+          "pods": "110"
+        },
+        "allocatable": {
+          "cpu": "16",
+          "ephemeral-storage": "499568857088",
+          "hugepages-1Gi": "0",
+          "hugepages-2Mi": "0",
+          "memory": "32138788Ki",
+          "pods": "110"
+        }
+      }
+    ],
+    "platform": "linux",
+    "architecture": "x64",
+    "logicalCpus": 16,
+    "memoryBytes": {
+      "total": 32910118912,
+      "availableAtStart": 14304239616
+    },
+    "clusterProfile": "waypoint-be79bec5-f46",
+    "driver": "docker",
+    "workload": {
+      "replicas": 1,
+      "producerImage": "python:3.12.15-slim-trixie",
+      "consumerImage": "python:3.12.15-slim-trixie",
+      "producerUpdateIntervalSeconds": 0.5,
+      "consumerPollIntervalSeconds": 0.25,
+      "freshnessWindowSeconds": 3,
+      "resourcesPerPod": {
+        "requests": {
+          "cpu": "10m",
+          "memory": "48Mi"
+        },
+        "limits": {
+          "cpu": "100m",
+          "memory": "96Mi"
+        }
+      }
+    },
+    "docker": "29.8.2\n",
+    "minikube": "v1.39.0",
+    "kubectlClient": "{\n  \"clientVersion\": {\n    \"major\": \"1\",\n    \"minor\": \"37\",\n    \"gitVersion\": \"v1.37.1\",\n    \"gitCommit\": \"f78e722310e50bcaca9276be22276d9e91d91308\",\n    \"gitTreeState\": \"archive\",\n    \"buildDate\": \"2026-09-24T08:45:22Z\",\n    \"goVersion\": \"go1.27.1-X:nodwarf5\",\n    \"compiler\": \"gc\",\n    \"platform\": \"linux/amd64\"\n  },\n  \"kustomizeVersion\": \"v5.8.1\"\n}",
+    "clusterNamespace": "waypoint-lab-836f3901547c",
+    "kubernetes": {
+      "major": "1",
+      "minor": "37",
+      "emulationMajor": "1",
+      "emulationMinor": "37",
+      "minCompatibilityMajor": "1",
+      "minCompatibilityMinor": "36",
+      "gitVersion": "v1.37.0",
+      "gitCommit": "f54c212e3a2f75d674b717a9b29052b20b60aefc",
+      "gitTreeState": "clean",
+      "buildDate": "2026-08-26T10:44:25Z",
+      "goVersion": "go1.26.6",
+      "compiler": "gc",
+      "platform": "linux/amd64"
+    },
+    "imageIds": [
+      {
+        "workload": "market-consumer",
+        "image": "docker.io/library/python:3.12.15-slim-trixie",
+        "imageID": "docker.io/library/python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1"
+      },
+      {
+        "workload": "market-producer",
+        "image": "docker.io/library/python:3.12.15-slim-trixie",
+        "imageID": "docker.io/library/python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1"
+      }
+    ]
+  },
+  "incidents": [
+    {
+      "incident": "market-data-stale",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Producer process liveness",
+          "passed": true,
+          "detail": "Producer /livez returns HTTP 200 while its in-memory sequence is paused."
+        },
+        {
+          "name": "Producer API readiness",
+          "passed": true,
+          "detail": "Producer /readyz returns HTTP 200 because it can still serve the last quote."
+        },
+        {
+          "name": "Consumer feed freshness",
+          "passed": true,
+          "detail": "Consumer observed feed abb5b307-bd28-4fb4-bbd7-f554b9c424ce sequence 65, then marked it stale."
+        },
+        {
+          "name": "Kubernetes traffic readiness",
+          "passed": true,
+          "detail": "Consumer /livez remains HTTP 200; /readyz is HTTP 503, Pod Ready is False, its ready EndpointSlice backend is removed, and restarts are unchanged."
+        }
+      ],
+      "evidence": {
+        "feedId": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "producerSequence": 65,
+        "consumerSequence": 65,
+        "producerLive": true,
+        "producerReady": true,
+        "consumerLive": true,
+        "consumerReady": false,
+        "consumerPodReady": false,
+        "consumerReadyEndpoints": 0,
+        "consumerRestartsBefore": 0,
+        "consumerRestartsAfter": 0,
+        "producerPaused": true
+      },
+      "observedAt": "2026-10-11T07:10:31.217Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "Producer remains live",
+          "passed": true,
+          "detail": "Producer /livez and /readyz both return HTTP 200 after feed recovery."
+        },
+        {
+          "name": "Consumer process and API readiness recovered",
+          "passed": true,
+          "detail": "Consumer /livez and /readyz both return HTTP 200 after observing fresh feed data."
+        },
+        {
+          "name": "Fresh sequence advanced",
+          "passed": true,
+          "detail": "Feed abb5b307-bd28-4fb4-bbd7-f554b9c424ce advanced from 65 to 86; consumer observed the same sequence."
+        },
+        {
+          "name": "Consumer and EndpointSlice recovered",
+          "passed": true,
+          "detail": "Consumer reports fresh data, Pod Ready is True, and the ready Service EndpointSlice backend is restored."
+        }
+      ],
+      "recoveryEvidence": {
+        "feedId": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "producerSequence": 65,
+        "consumerSequence": 65,
+        "producerLive": true,
+        "producerReady": true,
+        "consumerLive": true,
+        "consumerReady": false,
+        "consumerPodReady": false,
+        "consumerReadyEndpoints": 0,
+        "consumerRestartsBefore": 0,
+        "consumerRestartsAfter": 0,
+        "producerPaused": false,
+        "producerSequenceAtResume": 65,
+        "producerSequenceAfterRecovery": 86,
+        "consumerSequenceAfterRecovery": 86,
+        "producerLiveAfterRecovery": true,
+        "producerReadyAfterRecovery": true,
+        "consumerLiveAfterRecovery": true,
+        "consumerReadyAfterRecovery": true,
+        "consumerFreshAfterRecovery": true,
+        "consumerPodReadyAfterRecovery": true,
+        "consumerReadyEndpointsAfterRecovery": 1,
+        "consumerRestartsAfterRecovery": 0
+      },
+      "generation": 1,
+      "revisionAfterRecovery": 2,
+      "result": "PASS"
+    },
+    {
+      "incident": "service-selector",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Service selector evidence",
+          "passed": true,
+          "detail": "The selected Deployment Pod remains Ready while its Service selector has no matching EndpointSlice backend."
+        }
+      ],
+      "evidence": {
+        "workloadPodReady": true,
+        "serviceReadyEndpoints": 0,
+        "selectorMatchesBaseline": false,
+        "consumerEffect": "Service has no ready backends"
+      },
+      "observedAt": "2026-10-11T07:11:10.269Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 2,
+      "revisionAfterRecovery": 5,
+      "result": "PASS"
+    },
+    {
+      "incident": "service-target-port",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Service targetPort evidence",
+          "passed": true,
+          "detail": "The Service still selects a Ready Pod, but its targetPort 1 does not match a declared container port."
+        }
+      ],
+      "evidence": {
+        "workloadPodReady": true,
+        "serviceReadyEndpoints": 1,
+        "serviceTargetPort": 1,
+        "declaredTargetPortExists": false
+      },
+      "observedAt": "2026-10-11T07:11:45.338Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 3,
+      "revisionAfterRecovery": 8,
+      "result": "PASS"
+    },
+    {
+      "incident": "image-pull",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Structured image state",
+          "passed": true,
+          "detail": "The selected Pod reports ErrImageNeverPull for the deliberately unavailable same-repository image variant."
+        }
+      ],
+      "evidence": {
+        "workloadPodReady": true,
+        "containerWaitingReason": "ErrImageNeverPull",
+        "imagePullPolicy": "Never"
+      },
+      "observedAt": "2026-10-11T07:12:22.106Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 4,
+      "revisionAfterRecovery": 11,
+      "result": "PASS"
+    },
+    {
+      "incident": "configmap-key",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Structured configuration state",
+          "passed": true,
+          "detail": "The selected Pod reports CreateContainerConfigError for the deliberately missing required ConfigMap key."
+        }
+      ],
+      "evidence": {
+        "workloadPodReady": true,
+        "containerWaitingReason": "CreateContainerConfigError",
+        "imagePullPolicy": null
+      },
+      "observedAt": "2026-10-11T07:12:59.183Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 5,
+      "revisionAfterRecovery": 14,
+      "result": "PASS"
+    },
+    {
+      "incident": "readiness",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Actual incident evidence",
+          "passed": true,
+          "detail": "Current fault-bearing Pod UID has kubelet probe-failure events and matching readiness/restart symptoms."
+        }
+      ],
+      "evidence": null,
+      "observedAt": "2026-10-11T07:13:35.940Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 6,
+      "revisionAfterRecovery": 17,
+      "result": "PASS"
+    },
+    {
+      "incident": "liveness",
+      "target": "waypoint-lab-836f3901547c/market-producer/producer",
+      "checks": [
+        {
+          "name": "Actual incident evidence",
+          "passed": true,
+          "detail": "Current fault-bearing Pod UID has kubelet probe-failure events and matching readiness/restart symptoms."
+        }
+      ],
+      "evidence": null,
+      "observedAt": "2026-10-11T07:15:14.641Z",
+      "recoveryChecks": [
+        {
+          "name": "ConfigMap/market-consumer-code-gh7dd82m46 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-code-m6b627cd45 configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "ConfigMap/market-producer-settings configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-consumer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "Service/market-producer configuration",
+          "passed": true,
+          "detail": "Required Service selectors/ports and ConfigMap contents must match the reviewed baseline."
+        },
+        {
+          "name": "market-consumer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-consumer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "market-producer replicas",
+          "passed": true,
+          "detail": "Intended nonzero replicas must be ready and current."
+        },
+        {
+          "name": "market-producer template",
+          "passed": true,
+          "detail": "Container configuration changed outside the repair contract."
+        },
+        {
+          "name": "HTTP verification scope",
+          "passed": true,
+          "detail": "Checking all 2 supported Deployment/container/Service HTTP contracts. Other ports, protocols and external dependencies are not verified as HTTP."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-consumer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-consumer:8081/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-consumer:8081/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "waypoint-lab-836f3901547c/market-producer ready Service backends",
+          "passed": true,
+          "detail": "Ready EndpointSlices must target every intended ready replica."
+        },
+        {
+          "name": "in-cluster Service HTTP waypoint-lab-836f3901547c/market-producer:8080/readyz",
+          "passed": true,
+          "detail": "HTTP request through Service waypoint-lab-836f3901547c/market-producer:8080/readyz exited successfully in a separate in-cluster Pod. Response body is excluded from grading evidence."
+        },
+        {
+          "name": "stable restart window",
+          "passed": true,
+          "detail": "No new container restarts across the 15-second recovery window."
+        }
+      ],
+      "recoveryEvidence": null,
+      "generation": 7,
+      "revisionAfterRecovery": 20,
+      "result": "PASS"
+    }
+  ],
+  "measurement": {
+    "environment": {
+      "consumer_fresh_at_start": true,
+      "consumer_max_data_age_seconds": 3,
+      "consumer_poll_interval_seconds": 0.25,
+      "consumer_url": "http://127.0.0.1:40187",
+      "fixture_resources_applied_to_measurement": true,
+      "http_request_timeout_seconds": 2,
+      "measurement_host_architecture": "x86_64",
+      "measurement_host_logical_cpu_count": 16,
+      "measurement_host_platform": "Linux-6.18.52-1-cachyos-lts-x86_64-with-glibc2.44",
+      "measurement_poll_interval_seconds": 0.1,
+      "note": "Minikube v1.39.0; Kubernetes {\"major\":\"1\",\"minor\":\"37\",\"emulationMajor\":\"1\",\"emulationMinor\":\"37\",\"minCompatibilityMajor\":\"1\",\"minCompatibilityMinor\":\"36\",\"gitVersion\":\"v1.37.0\",\"gitCommit\":\"f54c212e3a2f75d674b717a9b29052b20b60aefc\",\"gitTreeState\":\"clean\",\"buildDate\":\"2026-08-26T10:44:25Z\",\"goVersion\":\"go1.26.6\",\"compiler\":\"gc\",\"platform\":\"linux/amd64\"}; Docker 29.8.2; single-node Docker driver; host 16 logical CPUs/14304239616 available bytes at start/x64; node [{\"architecture\":\"amd64\",\"kubeletVersion\":\"v1.37.0\",\"capacity\":{\"cpu\":\"16\",\"ephemeral-storage\":\"499568857088\",\"hugepages-1Gi\":\"0\",\"hugepages-2Mi\":\"0\",\"memory\":\"32138788Ki\",\"pods\":\"110\"},\"allocatable\":{\"cpu\":\"16\",\"ephemeral-storage\":\"499568857088\",\"hugepages-1Gi\":\"0\",\"hugepages-2Mi\":\"0\",\"memory\":\"32138788Ki\",\"pods\":\"110\"}}]; image IDs [{\"workload\":\"market-consumer\",\"image\":\"docker.io/library/python:3.12.15-slim-trixie\",\"imageID\":\"docker.io/library/python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1\"},{\"workload\":\"market-producer\",\"image\":\"docker.io/library/python:3.12.15-slim-trixie\",\"imageID\":\"docker.io/library/python@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1\"}]; workload declares requests 10m CPU/48Mi and limits 100m CPU/96Mi per pod",
+      "per_pod_resources_declared_by_fixture": {
+        "limits": {
+          "cpu": "100m",
+          "memory": "96Mi"
+        },
+        "requests": {
+          "cpu": "10m",
+          "memory": "48Mi"
+        }
+      },
+      "producer_paused_at_start": false,
+      "producer_update_interval_seconds": 0.5,
+      "producer_url": "http://127.0.0.1:45869",
+      "python_version": "3.14.7",
+      "runtime_image_applied_to_measurement": true,
+      "runtime_image_declared_by_fixture": "python:3.12.15-slim-trixie",
+      "workload_mode": "kubernetes-port-forward"
+    },
+    "helper_version": "1.0",
+    "kubernetes_readiness_measurement": "not collected; separately observe the consumer Pod Ready condition and EndpointSlice with kubectl, and record the cluster version and node details",
+    "measured_at_utc": "2026-10-11T07:10:10Z",
+    "method": "Require a matching producer/consumer feed_id and sequence, verify a newer sequence, POST /lab/pause, then time both from pause acknowledgement and from the observer's first fresh report of the frozen sequence until its first stale report. Resume and require a later sequence before the next trial.",
+    "schema_version": 1,
+    "scope": "client-observed consumer feed-freshness detection; this is not a measurement of kubelet Pod Ready transition or EndpointSlice propagation",
+    "summary_seconds": {
+      "frozen_quote_seen_to_stale_observed": {
+        "max": 3.0092,
+        "median": 3.0059,
+        "min": 2.9104
+      },
+      "pause_ack_to_stale_observed": {
+        "max": 3.0112,
+        "median": 3.0079,
+        "min": 2.9123
+      }
+    },
+    "trials": [
+      {
+        "consumer_readyz_http_status": 503,
+        "feed_id": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "frozen_quote_seen_to_stale_observed_seconds": 3.0059,
+        "frozen_sequence": 26,
+        "pause_ack_to_stale_observed_seconds": 3.0079,
+        "quote_age_seconds_at_observation": 3.021,
+        "stale_sequence": 26,
+        "trial": 1
+      },
+      {
+        "consumer_readyz_http_status": 503,
+        "feed_id": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "frozen_quote_seen_to_stale_observed_seconds": 3.0092,
+        "frozen_sequence": 28,
+        "pause_ack_to_stale_observed_seconds": 3.0112,
+        "quote_age_seconds_at_observation": 3.065,
+        "stale_sequence": 28,
+        "trial": 2
+      },
+      {
+        "consumer_readyz_http_status": 503,
+        "feed_id": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "frozen_quote_seen_to_stale_observed_seconds": 2.9104,
+        "frozen_sequence": 30,
+        "pause_ack_to_stale_observed_seconds": 2.9123,
+        "quote_age_seconds_at_observation": 3.009,
+        "stale_sequence": 30,
+        "trial": 3
+      },
+      {
+        "consumer_readyz_http_status": 503,
+        "feed_id": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "frozen_quote_seen_to_stale_observed_seconds": 3.0064,
+        "frozen_sequence": 32,
+        "pause_ack_to_stale_observed_seconds": 3.0081,
+        "quote_age_seconds_at_observation": 3.047,
+        "stale_sequence": 32,
+        "trial": 4
+      },
+      {
+        "consumer_readyz_http_status": 503,
+        "feed_id": "abb5b307-bd28-4fb4-bbd7-f554b9c424ce",
+        "frozen_quote_seen_to_stale_observed_seconds": 3.0051,
+        "frozen_sequence": 34,
+        "pause_ack_to_stale_observed_seconds": 3.0068,
+        "quote_age_seconds_at_observation": 3.083,
+        "stale_sequence": 34,
+        "trial": 5
+      }
+    ]
+  },
+  "cleanup": "PASS: only the Waypoint-owned profile was deleted",
+  "finishedAt": "2026-10-11T07:16:10.427Z",
+  "status": "PASS"
+}

@@ -13,6 +13,12 @@ import {
   type IncidentRecipe,
   targetKey,
 } from "../domain/generated-incident";
+import {
+  applicableIncidents,
+  incidentOperation,
+  isSyntheticMarketData,
+  type LiveIncidentId,
+} from "../domain/live-incidents";
 import { LocalConfiguration } from "./local-configuration";
 import { run } from "./process";
 import { onProfileChange } from "./auth/session";
@@ -44,6 +50,13 @@ import {
   type OwnedTarget,
 } from "./minikube";
 import { LiveCache } from "./observations/cache";
+import {
+  ownedLabControl,
+  ownedLabJson,
+  selectSingleReadyDeploymentPod,
+  withOwnedPodControlForward,
+  withOwnedServicePortForward,
+} from "./loopback-port-forward";
 export type LabPhase =
   | "preparing"
   | "ready"
@@ -62,10 +75,11 @@ export type LiveLab = {
   revision: number;
   plan: DeploymentPlan;
   source: string;
-  incident: "readiness" | "liveness" | null;
+  incident: LiveIncidentId | null;
   recipe?: IncidentRecipe;
   incidentInjectedAt?: string;
   incidentObservedAt?: string;
+  incidentEvidence?: Record<string, string | number | boolean | null>;
   operation: string | null;
   error: string | null;
   checks: { name: string; passed: boolean; detail: string }[];
@@ -388,7 +402,7 @@ export class MinikubeRuntime {
       generation: number;
       revision: number;
       source?: string;
-      incident?: "readiness" | "liveness";
+      incident?: LiveIncidentId;
       target?: string;
       proposalId?: string;
     },
@@ -437,13 +451,18 @@ export class MinikubeRuntime {
       if (lab.generation !== op.generation || lab.revision !== op.revision)
         throw new LabConflict("Lab revision changed. Refresh before applying.");
       if (lab.phase === "stopped") throw Error("Lab is stopped.");
-      if (
-        op.kind === "incident" &&
-        !["readiness", "liveness"].includes(op.incident ?? "readiness")
-      )
-        throw Error("Select a readiness or liveness incident.");
       let recipe: IncidentRecipe | undefined;
       if (op.kind === "incident") {
+        if (!op.incident || !op.target)
+          throw Error("Select a validated incident and exact workload target.");
+        if (
+          !applicableIncidents(lab.plan, op.target).some(
+            (choice) => choice.id === op.incident,
+          )
+        )
+          throw Error(
+            "This incident is not applicable to the selected workload.",
+          );
         if (op.proposalId) {
           const proposal = this.proposals.get(op.proposalId);
           if (
@@ -476,6 +495,13 @@ export class MinikubeRuntime {
         assertSafeApplicationSource(op.source);
         validateLabRepair(lab.plan, op.source);
       }
+      if (
+        op.kind === "repair" &&
+        (lab.phase !== "running" || !lab.incident || !lab.incidentObservedAt)
+      )
+        throw Error(
+          "A corroborated incident is required before applying its reviewed repair.",
+        );
       if (
         op.kind === "run-cronjob" &&
         !lab.plan.resources.some(
@@ -517,40 +543,37 @@ export class MinikubeRuntime {
             )!;
             lab.recipe = recipe;
             await this.healthy();
-            const values = structuredClone(lab.plan.resources),
-              dep = values.find(
-                (v) =>
-                  v.kind === "Deployment" &&
-                  at(v, "metadata", "name") === lab.plan.contract!.deployment &&
-                  at(v, "metadata", "namespace") ===
-                    (lab.plan.contract!.namespace ?? lab.namespace),
-              )!;
-            const c = list(
-              at(dep, "spec", "template", "spec", "containers"),
-            ).find(
-              (container) => container.name === lab.plan.contract!.container,
+            const values = incidentOperation(
+              lab.plan,
+              op.incident!,
+              op.target!,
+              lab.id,
             );
-            if (!c) throw Error("Selected practice container is unavailable.");
-            {
-              const field =
-                op.incident === "liveness" ? "livenessProbe" : "readinessProbe";
-              if (!at(c, field, "httpGet", "path"))
-                throw Error(
-                  "This application has no supported HTTP liveness probe.",
-                );
-              object(at(c, field, "httpGet")).path =
-                "/waypoint-missing-" + lab.id.slice(0, 8);
-            }
-            lab.source = values.map((v) => stringify(v)).join("---\n");
+            lab.incident = op.incident!;
             lab.incidentInjectedAt = new Date().toISOString();
             lab.incidentObservedAt = undefined;
-            assertSafeApplicationSource(lab.source);
-            await kube(lab.target, ["apply", "-f", "-"], lab.source);
-            lab.incident = op.incident ?? "readiness";
+            lab.incidentEvidence = undefined;
+            if (op.incident === "market-data-stale") {
+              if (!isSyntheticMarketData(lab.plan))
+                throw Error("Market-data fault requires the reviewed fixture.");
+              lab.source = lab.plan.source;
+              await this.pauseMarketData();
+            } else {
+              lab.source = values.map((v) => stringify(v)).join("---\n");
+              assertSafeApplicationSource(lab.source);
+              await kube(lab.target, ["apply", "-f", "-"], lab.source);
+            }
             lab.revision++;
             lab.phase = "running";
             await this.proveIncident();
             lab.incidentObservedAt = new Date().toISOString();
+          } else if (op.kind === "repair") {
+            if (lab.incident === "market-data-stale")
+              await this.resumeMarketData();
+            await this.applyBaseline();
+            lab.source = lab.plan.source;
+            lab.revision++;
+            lab.phase = "running";
           } else if (op.kind === "apply") {
             await kube(lab.target, ["apply", "-f", "-"], op.source);
             lab.source = op.source!;
@@ -567,6 +590,8 @@ export class MinikubeRuntime {
                   "Observations are stale or unavailable; reconnect before checking.",
                 );
               await this.healthy();
+              if (lab.incident === "market-data-stale")
+                await this.proveMarketDataRecovery();
               if (!this.cache?.fresh())
                 throw Error(
                   "Observations disconnected during checking; outcome unavailable.",
@@ -584,6 +609,8 @@ export class MinikubeRuntime {
             }
           } else if (op.kind === "recover") {
             this.cache?.stop();
+            if (lab.incident === "market-data-stale")
+              await this.resumeMarketData();
             await completeOwnership(lab.target, () => this.save());
             await this.applyBaseline();
             lab.source = lab.plan.source;
@@ -593,12 +620,15 @@ export class MinikubeRuntime {
             lab.recipe = undefined;
             lab.incidentInjectedAt = undefined;
             lab.incidentObservedAt = undefined;
+            lab.incidentEvidence = undefined;
             this.proposals.clear();
             await this.startCache();
             await this.healthy();
             lab.phase = "ready";
           } else if (op.kind === "reset") {
             this.cache?.stop();
+            if (lab.incident === "market-data-stale")
+              await this.resumeMarketData();
             await this.applyBaseline();
             lab.source = lab.plan.source;
             lab.generation++;
@@ -607,6 +637,7 @@ export class MinikubeRuntime {
             lab.recipe = undefined;
             lab.incidentInjectedAt = undefined;
             lab.incidentObservedAt = undefined;
+            lab.incidentEvidence = undefined;
             this.proposals.clear();
             await this.startCache();
             await this.healthy();
@@ -996,36 +1027,6 @@ export class MinikubeRuntime {
         : "No supported HTTP contract was found. Resource configuration/readiness checks do not establish successful application traffic.",
     });
     for (const contract of contracts) {
-      const slices = list(
-        object(
-          JSON.parse(
-            await kube(lab.target, [
-              "-n",
-              contract.namespace ?? lab.namespace,
-              "get",
-              "endpointslices",
-              "-l",
-              "kubernetes.io/service-name=" + contract.service,
-              "-o",
-              "json",
-            ]),
-          ),
-        ).items,
-      );
-      const pods = list(
-        object(
-          JSON.parse(
-            await kube(lab.target, [
-              "-n",
-              contract.namespace ?? lab.namespace,
-              "get",
-              "pods",
-              "-o",
-              "json",
-            ]),
-          ),
-        ).items,
-      );
       const replicas = list(
         object(
           JSON.parse(
@@ -1053,40 +1054,80 @@ export class MinikubeRuntime {
           ]),
         ),
       );
-      const deploymentUid = text(at(selectedDeployment, "metadata", "uid"));
-      const replicaUids = new Set(
-        replicas
-          .filter((r) =>
-            list(at(r, "metadata", "ownerReferences")).some(
-              (o) => o.uid === deploymentUid,
-            ),
-          )
-          .map((r) => text(at(r, "metadata", "uid"))),
-      );
-      const selectedPods = pods.filter((p) =>
-        list(at(p, "metadata", "ownerReferences")).some((o) =>
-          replicaUids.has(text(o.uid)),
+      const deploymentUid = text(at(selectedDeployment, "metadata", "uid")),
+        replicaUids = new Set(
+          replicas
+            .filter((r) =>
+              list(at(r, "metadata", "ownerReferences")).some(
+                (o) => o.uid === deploymentUid,
+              ),
+            )
+            .map((r) => text(at(r, "metadata", "uid"))),
         ),
-      );
-      const ready = new Set(
-        slices
-          .flatMap((s) => list(s.endpoints))
-          .filter(
-            (e) =>
-              at(e, "conditions", "ready") === true &&
-              at(e, "conditions", "terminating") !== true,
-          )
-          .map((e) => text(at(e, "targetRef", "uid"))),
-      );
-      check(
-        `${contract.namespace ?? lab.namespace}/${contract.service} ready Service backends`,
-        selectedPods.filter(
+        expectedReplicas = Number(at(selectedDeployment, "spec", "replicas"));
+      let selectedPods: ReturnType<typeof list> = [],
+        readyBackendCount = 0;
+      const endpointDeadline = Date.now() + 15000;
+      do {
+        const slices = list(
+            object(
+              JSON.parse(
+                await kube(lab.target, [
+                  "-n",
+                  contract.namespace ?? lab.namespace,
+                  "get",
+                  "endpointslices",
+                  "-l",
+                  "kubernetes.io/service-name=" + contract.service,
+                  "-o",
+                  "json",
+                ]),
+              ),
+            ).items,
+          ),
+          pods = list(
+            object(
+              JSON.parse(
+                await kube(lab.target, [
+                  "-n",
+                  contract.namespace ?? lab.namespace,
+                  "get",
+                  "pods",
+                  "-o",
+                  "json",
+                ]),
+              ),
+            ).items,
+          );
+        selectedPods = pods.filter((p) =>
+          list(at(p, "metadata", "ownerReferences")).some((o) =>
+            replicaUids.has(text(o.uid)),
+          ),
+        );
+        const ready = new Set(
+          slices
+            .flatMap((s) => list(s.endpoints))
+            .filter(
+              (e) =>
+                at(e, "conditions", "ready") === true &&
+                at(e, "conditions", "terminating") !== true,
+            )
+            .map((e) => text(at(e, "targetRef", "uid"))),
+        );
+        readyBackendCount = selectedPods.filter(
           (p) =>
             ready.has(text(at(p, "metadata", "uid"))) &&
             list(at(p, "status", "conditions")).some(
               (c) => c.type === "Ready" && c.status === "True",
             ),
-        ).length === Number(at(selectedDeployment, "spec", "replicas")),
+        ).length;
+        if (readyBackendCount === expectedReplicas) break;
+        if (Date.now() < endpointDeadline)
+          await new Promise((resolve) => setTimeout(resolve, 250));
+      } while (Date.now() < endpointDeadline);
+      check(
+        `${contract.namespace ?? lab.namespace}/${contract.service} ready Service backends`,
+        readyBackendCount === expectedReplicas,
         "Ready EndpointSlices must target every intended ready replica.",
       );
       await this.httpCheck(
@@ -1246,9 +1287,605 @@ export class MinikubeRuntime {
       }
     }
   }
+  private async marketDataNamespace() {
+    const lab = this.lab!;
+    if (!isSyntheticMarketData(lab.plan))
+      throw Error("The reviewed synthetic market-data fixture is unavailable.");
+    const producer = lab.plan.resources.find(
+      (r) =>
+        r.kind === "Deployment" &&
+        at(r, "metadata", "name") === "market-producer",
+    );
+    const namespace = text(at(producer, "metadata", "namespace"));
+    if (!producer || !namespace)
+      throw Error("The owned market-data producer target is unavailable.");
+    return namespace;
+  }
+  private async marketDataProducerPod() {
+    const lab = this.lab!,
+      namespace = await this.marketDataNamespace();
+    await assertOwned(lab.target);
+    return selectSingleReadyDeploymentPod(
+      await this.deploymentPods(namespace, "market-producer"),
+    );
+  }
+  private async marketFeedControl(action: "pause" | "resume") {
+    const lab = this.lab!,
+      namespace = await this.marketDataNamespace(),
+      pod = await this.marketDataProducerPod();
+    return withOwnedPodControlForward(
+      lab.target,
+      namespace,
+      pod,
+      async (origin) => {
+        const currentPod = await this.marketDataProducerPod();
+        if (currentPod.name !== pod.name || currentPod.uid !== pod.uid)
+          throw Error("The owned producer Pod changed before feed control.");
+        const result = await ownedLabControl(origin, action);
+        if (
+          result.status !== 200 ||
+          result.body.action !== action ||
+          !result.body.quote ||
+          typeof result.body.quote !== "object"
+        )
+          throw Error(`Synthetic feed ${action} control was not confirmed.`);
+        const quote = object(result.body.quote);
+        if (
+          typeof quote.feed_id !== "string" ||
+          typeof quote.sequence !== "number" ||
+          !Number.isInteger(quote.sequence) ||
+          quote.sequence < 1
+        )
+          throw Error(
+            "Synthetic feed control returned invalid sequence evidence.",
+          );
+        return quote;
+      },
+    );
+  }
+  private async pauseMarketData() {
+    const lab = this.lab!,
+      quote = await this.marketFeedControl("pause");
+    const contract = (lab.plan.contracts ?? []).find(
+      (c) => c.deployment === "market-consumer",
+    );
+    if (!contract) throw Error("The market-data consumer contract is missing.");
+    const pods = await this.deploymentPods(
+      contract.namespace ?? lab.namespace,
+      contract.deployment,
+    );
+    lab.incidentEvidence = {
+      feedId: text(quote.feed_id),
+      producerSequence: Number(quote.sequence),
+      consumerRestartsBefore: this.restartCount(pods),
+      producerPaused: true,
+    };
+  }
+  private async resumeMarketData() {
+    const lab = this.lab!;
+    await this.marketDataNamespace();
+    const quote = await this.marketFeedControl("resume");
+    if (lab.incidentEvidence) {
+      lab.incidentEvidence = {
+        ...lab.incidentEvidence,
+        producerPaused: false,
+        producerSequenceAtResume: Number(quote.sequence),
+      };
+    }
+  }
+  private async deploymentPods(namespace: string, name: string) {
+    const lab = this.lab!;
+    const deployment = object(
+      JSON.parse(
+        await kube(lab.target, [
+          "-n",
+          namespace,
+          "get",
+          "deployment",
+          name,
+          "-o",
+          "json",
+        ]),
+      ),
+    );
+    const replicas = list(
+      object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            namespace,
+            "get",
+            "replicasets",
+            "-o",
+            "json",
+          ]),
+        ),
+      ).items,
+    );
+    const replicaUids = new Set(
+      replicas
+        .filter((r) =>
+          list(at(r, "metadata", "ownerReferences")).some(
+            (owner) => owner.uid === at(deployment, "metadata", "uid"),
+          ),
+        )
+        .map((r) => text(at(r, "metadata", "uid"))),
+    );
+    const pods = list(
+      object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            namespace,
+            "get",
+            "pods",
+            "-o",
+            "json",
+          ]),
+        ),
+      ).items,
+    ).filter((p) =>
+      list(at(p, "metadata", "ownerReferences")).some((owner) =>
+        replicaUids.has(text(owner.uid)),
+      ),
+    );
+    return pods;
+  }
+  private restartCount(pods: ObjectMap[]) {
+    return pods.reduce(
+      (sum, pod) =>
+        sum +
+        list(at(pod, "status", "containerStatuses")).reduce(
+          (count, status) => count + Number(status.restartCount ?? 0),
+          0,
+        ),
+      0,
+    );
+  }
+  private async serviceReadyEndpoints(namespace: string, service: string) {
+    const lab = this.lab!;
+    const slices = list(
+      object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            namespace,
+            "get",
+            "endpointslices",
+            "-l",
+            `kubernetes.io/service-name=${service}`,
+            "-o",
+            "json",
+          ]),
+        ),
+      ).items,
+    );
+    return slices
+      .flatMap((slice) => list(slice.endpoints))
+      .filter(
+        (endpoint) =>
+          at(endpoint, "conditions", "ready") === true &&
+          at(endpoint, "conditions", "terminating") !== true,
+      );
+  }
+  private isPodReady(pods: ObjectMap[]) {
+    return pods.some((pod) =>
+      list(at(pod, "status", "conditions")).some(
+        (condition) =>
+          condition.type === "Ready" && condition.status === "True",
+      ),
+    );
+  }
+  private async proveServiceIncident() {
+    const lab = this.lab!,
+      contract = lab.plan.contract!;
+    const ns = contract.namespace ?? lab.namespace,
+      deadline = Date.now() + 90000;
+    const service = lab.plan.resources.find(
+      (r) =>
+        r.kind === "Service" &&
+        at(r, "metadata", "name") === contract.service &&
+        at(r, "metadata", "namespace") === ns,
+    );
+    if (!service) throw Error("The selected reviewed Service is unavailable.");
+    while (Date.now() < deadline) {
+      const pods = await this.deploymentPods(ns, contract.deployment),
+        endpoints = await this.serviceReadyEndpoints(ns, contract.service),
+        ready = this.isPodReady(pods);
+      const currentService = object(
+        JSON.parse(
+          await kube(lab.target, [
+            "-n",
+            ns,
+            "get",
+            "service",
+            contract.service,
+            "-o",
+            "json",
+          ]),
+        ),
+      );
+      if (
+        lab.incident === "service-selector" &&
+        ready &&
+        endpoints.length === 0 &&
+        at(currentService, "spec", "selector", "waypoint.dev/no-match") ===
+          lab.id
+      ) {
+        lab.incidentEvidence = {
+          workloadPodReady: true,
+          serviceReadyEndpoints: 0,
+          selectorMatchesBaseline: false,
+          consumerEffect: "Service has no ready backends",
+        };
+        lab.checks = [
+          {
+            name: "Service selector evidence",
+            passed: true,
+            detail:
+              "The selected Deployment Pod remains Ready while its Service selector has no matching EndpointSlice backend.",
+          },
+        ];
+        return;
+      }
+      if (
+        lab.incident === "service-target-port" &&
+        ready &&
+        endpoints.length > 0
+      ) {
+        const actualService = currentService;
+        const declaredPorts = list(
+          at(
+            lab.plan.resources.find(
+              (r) =>
+                r.kind === "Deployment" &&
+                at(r, "metadata", "name") === contract.deployment,
+            ),
+            "spec",
+            "template",
+            "spec",
+            "containers",
+          ),
+        ).flatMap((container) => list(container.ports));
+        const mapped = list(at(actualService, "spec", "ports")).find(
+          (port) => Number(port.port) === contract.port,
+        );
+        if (
+          Number(at(mapped, "targetPort")) === 1 &&
+          !declaredPorts.some(
+            (port) => Number(port.containerPort) === 1 || port.name === "1",
+          )
+        ) {
+          lab.incidentEvidence = {
+            workloadPodReady: true,
+            serviceReadyEndpoints: endpoints.length,
+            serviceTargetPort: 1,
+            declaredTargetPortExists: false,
+          };
+          lab.checks = [
+            {
+              name: "Service targetPort evidence",
+              passed: true,
+              detail:
+                "The Service still selects a Ready Pod, but its targetPort 1 does not match a declared container port.",
+            },
+          ];
+          return;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    throw Error(
+      "The selected Service fault did not produce its expected Pod and EndpointSlice evidence within 90 seconds.",
+    );
+  }
+  private async proveStartupIncident() {
+    const lab = this.lab!,
+      contract = lab.plan.contract!;
+    const ns = contract.namespace ?? lab.namespace,
+      deadline = Date.now() + 90000;
+    while (Date.now() < deadline) {
+      const pods = await this.deploymentPods(ns, contract.deployment),
+        statuses = pods.flatMap((pod) =>
+          list(at(pod, "status", "containerStatuses")),
+        ),
+        reasons = statuses
+          .map((status) => text(at(status, "state", "waiting", "reason")))
+          .filter(Boolean),
+        expected =
+          lab.incident === "image-pull"
+            ? ["ErrImageNeverPull", "ErrImagePull", "ImagePullBackOff"]
+            : ["CreateContainerConfigError"];
+      const reason = reasons.find((value) => expected.includes(value));
+      if (reason) {
+        lab.incidentEvidence = {
+          workloadPodReady: this.isPodReady(pods),
+          containerWaitingReason: reason,
+          imagePullPolicy: lab.incident === "image-pull" ? "Never" : null,
+        };
+        lab.checks = [
+          {
+            name:
+              lab.incident === "image-pull"
+                ? "Structured image state"
+                : "Structured configuration state",
+            passed: true,
+            detail:
+              lab.incident === "image-pull"
+                ? `The selected Pod reports ${reason} for the deliberately unavailable same-repository image variant.`
+                : "The selected Pod reports CreateContainerConfigError for the deliberately missing required ConfigMap key.",
+          },
+        ];
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+    throw Error(
+      "The selected startup fault did not reach its structured Pod waiting state within 90 seconds.",
+    );
+  }
+  private async proveMarketDataIncident() {
+    const lab = this.lab!,
+      ns = await this.marketDataNamespace(),
+      baseline = lab.incidentEvidence ?? {},
+      oldSequence = Number(baseline.producerSequence),
+      oldFeedId = text(baseline.feedId),
+      deadline = Date.now() + 90000;
+    if (!Number.isFinite(oldSequence) || !oldFeedId)
+      throw Error("The paused synthetic quote sequence was not recorded.");
+    const consumerContract = (lab.plan.contracts ?? []).find(
+      (c) => c.deployment === "market-consumer",
+    )!;
+    const beforeRestarts = Number(baseline.consumerRestartsBefore ?? 0);
+    const proved = await withOwnedServicePortForward(
+      lab.target,
+      ns,
+      "market-producer",
+      8080,
+      async (producerUrl) =>
+        withOwnedServicePortForward(
+          lab.target,
+          ns,
+          "market-consumer",
+          8081,
+          async (consumerUrl) => {
+            while (Date.now() < deadline) {
+              const [
+                producerLive,
+                producerReady,
+                quote,
+                consumerLive,
+                consumerReady,
+                metrics,
+              ] = await Promise.all([
+                ownedLabJson(producerUrl, "/livez"),
+                ownedLabJson(producerUrl, "/readyz"),
+                ownedLabJson(producerUrl, "/quote"),
+                ownedLabJson(consumerUrl, "/livez"),
+                ownedLabJson(consumerUrl, "/readyz"),
+                ownedLabJson(consumerUrl, "/metrics"),
+              ]);
+              const consumerPods = await this.deploymentPods(
+                  consumerContract.namespace ?? lab.namespace,
+                  consumerContract.deployment,
+                ),
+                consumerEndpoints = await this.serviceReadyEndpoints(
+                  consumerContract.namespace ?? lab.namespace,
+                  consumerContract.service,
+                ),
+                currentQuote = object(quote.body),
+                currentMetrics = metrics.body,
+                sequenceStillFrozen =
+                  currentQuote.feed_id === oldFeedId &&
+                  currentQuote.sequence === oldSequence,
+                consumerSawFrozenQuote =
+                  currentMetrics.feed_id === oldFeedId &&
+                  currentMetrics.sequence === oldSequence,
+                stale =
+                  metrics.status === 200 &&
+                  currentMetrics.state === "stale" &&
+                  currentMetrics.fresh === false;
+              if (
+                producerLive.status === 200 &&
+                producerReady.status === 200 &&
+                sequenceStillFrozen &&
+                consumerLive.status === 200 &&
+                consumerReady.status === 503 &&
+                consumerSawFrozenQuote &&
+                stale &&
+                !this.isPodReady(consumerPods) &&
+                consumerEndpoints.length === 0 &&
+                this.restartCount(consumerPods) === beforeRestarts
+              ) {
+                lab.incidentEvidence = {
+                  feedId: oldFeedId,
+                  producerSequence: oldSequence,
+                  consumerSequence: Number(currentMetrics.sequence),
+                  producerLive: true,
+                  producerReady: true,
+                  consumerLive: true,
+                  consumerReady: false,
+                  consumerPodReady: false,
+                  consumerReadyEndpoints: 0,
+                  consumerRestartsBefore: beforeRestarts,
+                  consumerRestartsAfter: this.restartCount(consumerPods),
+                  producerPaused: true,
+                };
+                lab.checks = [
+                  {
+                    name: "Producer process liveness",
+                    passed: true,
+                    detail:
+                      "Producer /livez returns HTTP 200 while its in-memory sequence is paused.",
+                  },
+                  {
+                    name: "Producer API readiness",
+                    passed: true,
+                    detail:
+                      "Producer /readyz returns HTTP 200 because it can still serve the last quote.",
+                  },
+                  {
+                    name: "Consumer feed freshness",
+                    passed: true,
+                    detail: `Consumer observed feed ${oldFeedId} sequence ${oldSequence}, then marked it stale.`,
+                  },
+                  {
+                    name: "Kubernetes traffic readiness",
+                    passed: true,
+                    detail:
+                      "Consumer /livez remains HTTP 200; /readyz is HTTP 503, Pod Ready is False, its ready EndpointSlice backend is removed, and restarts are unchanged.",
+                  },
+                ];
+                return true;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+            return false;
+          },
+        ),
+    );
+    if (!proved)
+      throw Error(
+        "The stale-feed invariant, process liveness, Pod readiness, and EndpointSlice change did not all appear within 90 seconds.",
+      );
+  }
+  private async proveMarketDataRecovery() {
+    const lab = this.lab!,
+      ns = await this.marketDataNamespace(),
+      oldSequence = Number(lab.incidentEvidence?.producerSequence),
+      oldFeedId = text(lab.incidentEvidence?.feedId),
+      deadline = Date.now() + 30000;
+    const consumerContract = (lab.plan.contracts ?? []).find(
+      (c) => c.deployment === "market-consumer",
+    )!;
+    const proved = await withOwnedServicePortForward(
+      lab.target,
+      ns,
+      "market-producer",
+      8080,
+      async (producerUrl) =>
+        withOwnedServicePortForward(
+          lab.target,
+          ns,
+          "market-consumer",
+          8081,
+          async (consumerUrl) => {
+            while (Date.now() < deadline) {
+              const [
+                producerLive,
+                producerReady,
+                quote,
+                consumerLive,
+                consumerReady,
+                metrics,
+              ] = await Promise.all([
+                ownedLabJson(producerUrl, "/livez"),
+                ownedLabJson(producerUrl, "/readyz"),
+                ownedLabJson(producerUrl, "/quote"),
+                ownedLabJson(consumerUrl, "/livez"),
+                ownedLabJson(consumerUrl, "/readyz"),
+                ownedLabJson(consumerUrl, "/metrics"),
+              ]);
+              const currentQuote = object(quote.body),
+                currentMetrics = metrics.body;
+              if (
+                producerLive.status === 200 &&
+                producerReady.status === 200 &&
+                quote.status === 200 &&
+                consumerLive.status === 200 &&
+                consumerReady.status === 200 &&
+                metrics.status === 200 &&
+                currentMetrics.fresh === true &&
+                currentQuote.feed_id === oldFeedId &&
+                currentMetrics.feed_id === oldFeedId &&
+                typeof currentQuote.sequence === "number" &&
+                currentQuote.sequence > oldSequence &&
+                currentMetrics.sequence === currentQuote.sequence
+              ) {
+                const consumerPods = await this.deploymentPods(
+                    consumerContract.namespace ?? lab.namespace,
+                    consumerContract.deployment,
+                  ),
+                  consumerEndpoints = await this.serviceReadyEndpoints(
+                    consumerContract.namespace ?? lab.namespace,
+                    consumerContract.service,
+                  );
+                const consumerRestartsAfterRecovery =
+                  this.restartCount(consumerPods);
+                if (
+                  !this.isPodReady(consumerPods) ||
+                  consumerEndpoints.length === 0 ||
+                  consumerRestartsAfterRecovery !==
+                    Number(lab.incidentEvidence?.consumerRestartsBefore)
+                )
+                  throw Error(
+                    "Fresh sequence returned before process health, Kubernetes readiness, EndpointSlice recovery, and restart stability.",
+                  );
+                lab.checks.push(
+                  {
+                    name: "Producer remains live",
+                    passed: true,
+                    detail:
+                      "Producer /livez and /readyz both return HTTP 200 after feed recovery.",
+                  },
+                  {
+                    name: "Consumer process and API readiness recovered",
+                    passed: true,
+                    detail:
+                      "Consumer /livez and /readyz both return HTTP 200 after observing fresh feed data.",
+                  },
+                  {
+                    name: "Fresh sequence advanced",
+                    passed: true,
+                    detail: `Feed ${oldFeedId} advanced from ${oldSequence} to ${currentQuote.sequence}; consumer observed the same sequence.`,
+                  },
+                  {
+                    name: "Consumer and EndpointSlice recovered",
+                    passed: true,
+                    detail:
+                      "Consumer reports fresh data, Pod Ready is True, and the ready Service EndpointSlice backend is restored.",
+                  },
+                );
+                lab.incidentEvidence = {
+                  ...lab.incidentEvidence,
+                  producerPaused: false,
+                  producerSequenceAfterRecovery: Number(currentQuote.sequence),
+                  consumerSequenceAfterRecovery: Number(
+                    currentMetrics.sequence,
+                  ),
+                  producerLiveAfterRecovery: true,
+                  producerReadyAfterRecovery: true,
+                  consumerLiveAfterRecovery: true,
+                  consumerReadyAfterRecovery: true,
+                  consumerFreshAfterRecovery: true,
+                  consumerPodReadyAfterRecovery: true,
+                  consumerReadyEndpointsAfterRecovery: consumerEndpoints.length,
+                  consumerRestartsAfterRecovery,
+                };
+                return true;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 500));
+            }
+            return false;
+          },
+        ),
+    );
+    if (!proved)
+      throw Error(
+        "The consumer did not observe a later quote sequence and regain readiness within 30 seconds.",
+      );
+  }
   private async proveIncident() {
     const lab = this.lab!,
-      contract = lab.plan.contract!,
+      incident = this.lab!.incident;
+    if (incident === "service-selector" || incident === "service-target-port")
+      return this.proveServiceIncident();
+    if (incident === "image-pull" || incident === "configmap-key")
+      return this.proveStartupIncident();
+    if (incident === "market-data-stale") return this.proveMarketDataIncident();
+    if (incident !== "readiness" && incident !== "liveness")
+      throw Error("No supported incident is active for proof.");
+    const contract = lab.plan.contract!,
       deadline = Date.now() + 90000;
     while (Date.now() < deadline) {
       const pods = list(
@@ -1280,7 +1917,7 @@ export class MinikubeRuntime {
         ).items,
       );
       const field =
-        lab.incident === "liveness" ? "livenessProbe" : "readinessProbe";
+        incident === "liveness" ? "livenessProbe" : "readinessProbe";
       const deployment = object(
         JSON.parse(
           await kube(lab.target, [
@@ -1335,7 +1972,7 @@ export class MinikubeRuntime {
           p,
           events,
           contract.container,
-          lab.incident!,
+          incident,
           lab.incidentInjectedAt ?? lab.startedAt,
         ),
       );

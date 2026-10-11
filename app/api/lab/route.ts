@@ -7,6 +7,7 @@ import { minikubeRuntime, LabConflict } from "@/lib/server/minikube-runtime";
 import { OperationLockBusy } from "@/lib/server/operation-lock";
 import { importSnapshot } from "@/lib/domain/snapshot";
 import { join } from "node:path";
+import { LIVE_INCIDENT_IDS } from "@/lib/domain/live-incidents";
 const operation = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("plan"), project: z.unknown() }),
   z.object({
@@ -16,6 +17,7 @@ const operation = z.discriminatedUnion("kind", [
   z.object({
     kind: z.enum([
       "incident",
+      "repair",
       "apply",
       "check",
       "reset",
@@ -35,7 +37,7 @@ const operation = z.discriminatedUnion("kind", [
         "Repair source exceeds 2 MB.",
       )
       .optional(),
-    incident: z.enum(["readiness", "liveness"]).optional(),
+    incident: z.enum(LIVE_INCIDENT_IDS).optional(),
     target: z.string().max(800).optional(),
     proposalId: z.string().uuid().optional(),
   }),

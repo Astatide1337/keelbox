@@ -1,55 +1,82 @@
 # Waypoint
 
-Inspect Kubernetes manifests and investigate real readiness and liveness failures in a dedicated local Minikube application. Source clusters and imported files remain unchanged.
+Waypoint teaches Kubernetes through inspected manifests, live cluster evidence, and guided recovery in a dedicated local Minikube profile. Importing a project or starting the UI does not create a cluster. The source project and ambient Kubernetes context remain unchanged.
 
-## Start
+## Install and start
 
-Use Node 22 or 24 on Linux. Install the prepared npm tarball (the package is not yet published):
+Use Node.js 22 or 24 on Linux. From the prepared local tarball:
 
 ```sh
-npm install -g ./kubernetes-learning-playground-0.1.0.tgz
+npm install --global ./waypoint-k8s-0.1.0.tgz
+waypoint doctor
 waypoint start
 ```
 
-Open the one-time local connection link printed by the CLI and complete **Sign in with ChatGPT** in your browser. Waypoint stores its own owner-only OAuth credentials locally. AI inference goes to OpenAI after you review the selected evidence. No other application's credentials are used. Quotas and account eligibility apply.
+Open the loopback connection link from the CLI and sign in to enable account-backed ChatGPT explanations and lesson generation. The runtime and deterministic incident checks do not depend on generated commands. Docker with a local Unix socket, Minikube, kubectl, `flock`, at least 2 CPUs, 4 GiB RAM, and 10 GiB disk are required for an owned lab. `waypoint doctor` reports the actual local prerequisites. Starting Waypoint does not create a cluster.
 
-Docker with a local Unix socket, Minikube, kubectl, at least 2 CPUs, 4 GiB free RAM, and 10 GiB disk are required to create a lab. Installing or starting the UI does not create a cluster. Run `waypoint doctor` for actual prerequisite results. Helm is needed for Helm imports and the optional local Vault fixture.
+## Run the synthetic market-data lesson
+
+With Waypoint running and signed in, select the bundled fixture:
+
+```sh
+waypoint demo market-data
+```
+
+Open **Practice**, review the deployment plan and effects, and choose **Create local lab**. The fixture runs an official prebuilt Python image in two Deployments. `market-producer` serves synthetic quotes through the `market-producer` Service; `market-consumer` polls that Service and exposes sequence and freshness metrics. Producer control binds only to `127.0.0.1:8081` inside its Pod; the Service exposes only the quote/probe listener. Waypoint forwards control only to the exact Ready producer Pod in the owned namespace. It uses no real quote source, trading, credentials, Secrets, or persistent storage. No image is built.
+
+Choose **Stale synthetic market data** to pause the producer through its typed, loopback-forwarded lab endpoint. The lesson records that the producer `/livez` and `/readyz` stay HTTP 200 while its `feed_id` and `sequence` stop advancing. After the freshness window, the consumer reports stale data, `/livez` remains HTTP 200, `/readyz` returns HTTP 503, its Pod becomes NotReady, and its ready EndpointSlice entry is removed without a restart. **Resume synthetic feed** restores sequence progress; **Check recovery** requires a later sequence and the consumer Pod and EndpointSlice to return to Ready.
+
+The selected workload also offers applicable readiness/liveness probe, Service selector, Service targetPort, missing-image, and missing-ConfigMap-key lessons. Waypoint displays each exact fault and repair before starting it. Image and config faults use only a synthetic missing value in the lab copy. ChatGPT may select among the choices validated for the selected workload; Waypoint supplies all mutations, repair, and checks. Generated text cannot provide shell commands, YAML patches, or cluster targets.
+
+## Other applications
+
+Import a trusted app or a selected repository entry, then inspect the topology, events, resources, and authored YAML:
 
 ```sh
 waypoint import /path/to/application
-waypoint import /path/to/repo --list
-waypoint import /path/to/repo --entry apps/web/overlays/demo
-waypoint import /path/to/chart --values values-demo.yaml --namespace demo
+waypoint import /path/to/repository --list
+waypoint import /path/to/repository --entry apps/web/overlays/demo
 ```
 
-Use Topology, Resources, Events and Manifest files to explore. Practice reviews a namespace transformation and capability diagnostics before **Create local lab**. Establish the baseline, choose readiness or liveness, inspect actual evidence, record a hypothesis, edit the lab YAML, **Apply repair**, and **Check recovery**. Requested hints and solutions are separate from normal exploration. The deterministic runtime checks award completion; ChatGPT explains evidence.
+Review the namespace transformation and capability report before creating a lab. `waypoint lab status` prints the explicit private kubeconfig/context for terminal inspection. Reset reapplies only the reviewed baseline; cleanup validates ownership before deleting the owned profile. Waypoint never targets a shared or production cluster as part of this guided scenario.
 
-`waypoint lab status` prints the explicit private kubeconfig/context command for your terminal. Never replace it with your ambient work-cluster context. Reset reapplies the baseline; it does not recreate Jobs or erase PVC data. Cleanup validates ownership before removing only the owned profile.
+## CPU-only fixture checks and measurement
 
-## Supported boundaries
+The quote producer and consumer can be checked over local HTTP without Kubernetes or a container runtime:
 
-This release supports a documented application subset and reports separate import, explanation, deployment, observation and exercise capabilities. It does not claim most repositories work. See [capability details](SETUP.md).
+```sh
+python3 "$(npm root -g)/waypoint-k8s/examples/market-data/tests/test_local.py"
+```
 
-- Plain YAML/JSON and typed Lists; explicit monorepo app/environment selection.
-- Temporary-copy Helm and contained Kustomize overlays/components/generators/replacements.
-- Explicit pinned public Argo source resolution with provenance; no GitOps reconciliation.
-- Namespace-scoped common resources and local test-only Secret/registry/Vault configuration.
-- HTTP readiness/liveness exercises require an eligible Deployment/container plus TCP Service. Verification checks ready EndpointSlices and an HTTP request **through the Service from inside the cluster**.
-- NetworkPolicy execution is gated without a verified enforcing CNI. HPA execution is gated until metrics and dynamic-replica checks exist. Hooks, CRDs/operators, remote Kustomize plugins and hostile/host-access workloads are refused.
-- Public prebuilt images can be pulled. Existing local Docker images can be explicitly mapped and loaded. Waypoint does not build images automatically.
+Or run the fixture check from a source checkout:
 
-Snapshots are captured history, not live connections. Live cache freshness is distinct from resource health. Logs are bounded and selected per Pod/container; missing permissions, stream gaps and truncation remain visible. Logs, Secret values, ConfigMap values and raw event messages are excluded from AI context.
+```sh
+python3 examples/market-data/tests/test_local.py
+```
 
-## Contribute / verify
+For a repeatable local-observer measurement, forward the producer data Service, the producer Pod-loopback control listener, and the consumer through the explicit private kubeconfig shown by `waypoint lab status`, then use:
+
+```sh
+python3 examples/market-data/tools/measure_detection.py \
+  --producer-url http://127.0.0.1:18080 \
+  --control-url http://127.0.0.1:18082 \
+  --consumer-url http://127.0.0.1:18081 \
+  --trials 5 \
+  --environment-note "Kubernetes version, node type/architecture, available resources, and limits"
+```
+
+The helper emits raw per-trial timings and min/median/max along with the image, workload settings, host, architecture, and polling interval. These measure client-observed quote freshness through HTTP; they do not claim kubelet or EndpointSlice propagation latency. Do not insert example values in place of an actual run.
+
+## Build and verify the tarball
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm test
 npm pack
-pnpm package:verify
+node scripts/verify-package.mjs
 ```
 
-`npm pack` builds the compiled CLI and production Next assets before creating the archive. Installation has no postinstall hooks or machine changes. Live browser tests require explicit owned-runtime opt-in and official browser consent; unit tests do not substitute for that proof.
+The artifact includes the synthetic fixture, compiled CLI/UI, and bundled dependency notices. Installation has no lifecycle hooks. The automated CI workflow does not create clusters or build container images. This work has not been published to npm.
 
-Licensed under MIT; see [LICENSE](LICENSE). No npm publication, cloud hosting, enterprise Argo parity, or production-cluster mutation is part of this release.
+See [SETUP.md](SETUP.md) for supported import boundaries, account details, and deeper verification guidance. Licensed under MIT; see [LICENSE](LICENSE).

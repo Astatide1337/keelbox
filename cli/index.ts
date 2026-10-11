@@ -11,10 +11,12 @@ import { collectSnapshot } from "../lib/server/collector";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, mkdir, open, unlink } from "node:fs/promises";
 import { randomBytes } from "node:crypto";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
+import { realpathSync } from "node:fs";
 import { run } from "../lib/server/process";
 import { stateRoot } from "../lib/server/runtime";
 import { at, list, object, text } from "../lib/domain/types";
+import { targetKey } from "../lib/domain/generated-incident";
 const [command = "start", ...args] = process.argv.slice(2);
 async function main() {
   if (command === "login" || command === "auth")
@@ -25,6 +27,7 @@ Commands:
   start                       Open local UI and sign in with ChatGPT
   doctor                       Check Linux/Docker/Minikube/kubectl and resources
   import PATH                  Review/select YAML/JSON, Helm or Kustomize in the local UI
+  demo market-data             Select the bundled synthetic market-data lesson
     --list | --entry PATH      Choose an application/environment in a repository
     --values FILE (ordered) --release NAME --namespace NAME
     --kube-version VERSION --api-version API (repeatable)
@@ -35,7 +38,9 @@ Commands:
   lab plan PATH                Preview a supported local deployment
   lab create                   Create the reviewed, owned Minikube lab
   lab status                   Actual session/evidence state and explicit terminal target
-  lab incident readiness|liveness
+  lab incident INCIDENT [TARGET]  Start a validated incident for one exact workload
+    readiness|liveness|service-selector|service-target-port|image-pull|configmap-key|market-data-stale
+  lab repair                      Reapply the reviewed repair for a corroborated incident
   lab apply FILE               Apply a repair to the lab copy only
   lab check | reset | cleanup   Verify, reapply baseline (preserve Job/PVC data), or delete owned lab
   lab run-cronjob NS/NAME --confirm
@@ -49,6 +54,27 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
     for (const c of checks)
       console.log(`${c.ok ? "OK" : "FAIL"} ${c.name}: ${c.detail}`);
     if (checks.some((c) => !c.ok)) process.exitCode = 1;
+    return;
+  }
+  if (command === "demo") {
+    if (args[0] !== "market-data")
+      throw Error("Usage: waypoint demo market-data");
+    const entry = realpathSync(process.argv[1] ?? ""),
+      packageRoot =
+        basename(entry) === "index.ts"
+          ? resolve(dirname(entry), "..")
+          : resolve(dirname(entry), "../.."),
+      demoPath = resolve(packageRoot, "examples/market-data"),
+      publish = await projectPublisher();
+    if (!publish)
+      throw Error(
+        "Start Waypoint and sign in with ChatGPT before selecting a demo.",
+      );
+    const project = await readManifestInputs([demoPath]);
+    const selected = (await publish(project)).selected;
+    console.log(
+      `Selected ${selected.project.label}. Open Waypoint Practice and review the deployment plan before creating its owned local lab.`,
+    );
     return;
   }
   if (
@@ -100,6 +126,7 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
     if (
       ![
         "incident",
+        "repair",
         "apply",
         "check",
         "reset",
@@ -131,7 +158,16 @@ PORT controls the loopback UI port (default 3000). No image builds or postinstal
       sessionId: current.lab.id,
       generation: current.lab.generation,
       revision: current.lab.revision,
-      ...(kind === "incident" ? { incident: args[1] ?? "readiness" } : {}),
+      ...(kind === "incident"
+        ? {
+            incident: args[1] ?? "readiness",
+            target:
+              args[2] ??
+              (current.lab.plan.contract
+                ? targetKey(current.lab.plan.contract, current.lab.namespace)
+                : undefined),
+          }
+        : {}),
       ...(kind === "run-cronjob" ? { target: args[1] } : {}),
       ...(kind === "apply"
         ? { source: await readFile(resolve(args[1] ?? ""), "utf8") }

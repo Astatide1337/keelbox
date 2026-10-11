@@ -24,13 +24,20 @@ await cp(
   ".next/standalone/node_modules/.pnpm/node_modules",
   "dist/ui/node_modules",
   { recursive: true, dereference: true, force: false },
-);
+).catch((error) => {
+  // Some pnpm/Next standalone layouts keep every traced package under the
+  // root node_modules/.pnpm tree and do not emit this additional link index.
+  if (error.code !== "ENOENT") throw error;
+});
 await cp(".next/standalone/examples", "dist/ui/examples", {
   recursive: true,
 }).catch((e) => {
   if (e.code !== "ENOENT") throw e;
 });
 await cp(".next/static", "dist/ui/.next/static", { recursive: true });
+// Build tracing metadata is not used by the standalone runtime and contains
+// absolute source-tree paths, so do not ship it in the relocatable archive.
+await rm("dist/ui/.next/required-server-files.json", { force: true });
 await cp("public", "dist/ui/public", { recursive: true }).catch((e) => {
   if (e.code !== "ENOENT") throw e;
 });

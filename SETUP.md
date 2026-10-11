@@ -18,49 +18,50 @@ Install that tarball into a separate directory:
 
 ```sh
 mkdir waypoint-demo && cd waypoint-demo
-npm install /absolute/path/kubernetes-learning-playground-0.1.0.tgz
+npm install /absolute/path/waypoint-k8s-0.1.0.tgz
 npx waypoint doctor
 npx waypoint start
 ```
 
 The installed package contains the compiled executable and production UI assets; it needs no source checkout, development dependencies or runtime build. There are no postinstall hooks. Open the one-time connect URL printed by `start` to authorize your browser to the local API, then complete Sign in with ChatGPT (or restore your own prior account authorization). Only one AI-enabled UI may own the protected credential store at a time. `PORT=3110 waypoint start` selects another loopback port.
 
-In a source checkout, `pnpm dev` runs the development server. Use `pnpm cli` in place of `npx waypoint` below. `WAYPOINT_MINIKUBE_BIN=/absolute/path/minikube` can select an explicitly installed Minikube binary.
+In a source checkout, `pnpm dev` runs the development server. Use `pnpm cli` in place of `waypoint` below. `WAYPOINT_MINIKUBE_BIN=/absolute/path/minikube` can select an explicitly installed Minikube binary.
 
 ## Reproducible real demo
 
-Keep the UI running. In another terminal with the same state-directory environment:
+Keep the UI running. In another terminal with the same state-directory environment, select the bundled market-data fixture:
 
 ```sh
-npx waypoint import node_modules/kubernetes-learning-playground/examples/local-http
+waypoint demo market-data
 ```
 
 1. Explore **Topology**, **Resources**, **Events** and **Manifest files**. Authored YAML declares intent; it does not establish observed health.
 2. Open **Practice → Review deployment**. Inspect namespace/metadata transformations, deployment YAML and cluster effects. Choose **Create local lab** explicitly.
 3. Wait for a healthy baseline: intended Deployment replicas, probe/configuration checks, ready EndpointSlice targets and an HTTP request **through the Service from inside the cluster**.
-4. Start the readiness investigation. Inspect the actual Pod conditions, kubelet Events, nginx request logs and YAML. Hints are available on request.
-5. Repair the wrong readiness path in the **lab copy**, keeping required probes, configuration and replicas. Apply, then **Check recovery**. Malformed YAML stays in the editor; unsafe shortcuts fail validation.
-6. **Reset baseline** opens a review, then reapplies the baseline and checks its supported health scope again. Existing Jobs are not recreated, CronJobs are not triggered, and PVC data is not erased. Repeat the exercise, or choose a liveness incident or review a ChatGPT-generated investigation.
+4. Choose an applicable typed lesson. For stale market data, control binds only to producer Pod loopback and Waypoint forwards to the exact Ready producer Pod; the generated quote is synthetic and no Pod shell is opened. Probe, Service selector/targetPort, missing-image and ConfigMap-key faults are exact reversible changes in the Waypoint-owned namespace.
+5. Compare Service traffic, Pod readiness, producer/consumer metrics, feed id and sequence. The runtime requires distinct process-liveness and feed-freshness evidence. For the stale feed, consumer `/livez` stays 200 while `/readyz` becomes 503; after the stale window, Kubernetes marks its Pod NotReady and removes the ready EndpointSlice endpoint without restarting it.
+6. Apply the displayed typed repair or restore a probe path in the **lab copy**, then **Check recovery**. Market-data recovery requires a sequence later than the frozen value and a Ready consumer endpoint. Generated lesson choices select only code-validated operations; generated text is not executed.
 7. Switch the header environment to **Imported source** to inspect unchanged original data. The **Local lab** environment exposes live resources in all five sections.
-8. **Clean up lab** and confirm the owned cluster/data deletion, or run `npx waypoint lab cleanup`. Cleanup validates the private kubeconfig, driver identity, cluster UID and ownership marker before deleting the owned profile. It preserves other clusters.
+8. **Clean up lab** and confirm the owned cluster/data deletion, or run `waypoint lab cleanup`. Cleanup validates the private kubeconfig, driver identity, cluster UID and ownership marker before deleting the owned profile. It preserves other clusters.
 
-The example uses prebuilt `nginx:1.28-alpine` and `busybox:1.37` images. The old fixture-specific HTTP 503 exercise has been removed. Liveness uses kubelet probe events plus observed restarts, and recovery includes a bounded stable-restart window.
+The market-data example uses the prebuilt Docker Official Image `python:3.12.15-slim-trixie`; the existing generic local HTTP sample remains available for probe exercises. Liveness uses kubelet probe events plus observed restarts, and recovery includes a bounded stable-restart window.
 
 Your normal terminal remains an unrestricted host shell. Use the explicit private `kubectl --kubeconfig … --context …` command displayed in the lab. Do not switch your default context. Closing the UI stops observation streams; it leaves the lab running so you can reconnect and inspect or clean it up.
 
 ## CLI lifecycle
 
 ```sh
-npx waypoint help
-npx waypoint lab plan /path/to/manifests
-npx waypoint lab create
-npx waypoint lab status
-npx waypoint lab incident readiness
-npx waypoint lab apply /path/to/repaired-lab.yaml
-npx waypoint lab check
-npx waypoint lab reset
-npx waypoint lab recover
-npx waypoint lab cleanup
+waypoint help
+waypoint demo market-data
+waypoint lab plan /path/to/manifests
+waypoint lab create
+waypoint lab status
+waypoint lab incident market-data-stale WAYPOINT_NAMESPACE/market-producer/producer
+waypoint lab repair
+waypoint lab check
+waypoint lab reset
+waypoint lab recover
+waypoint lab cleanup
 ```
 
 Mutations serialize through a kernel lock and require the current session/generation/revision. Interrupted operations expose an actual failure; `recover` retries owned preparation and restores the baseline. Identity mismatch refuses mutation and cleanup. Recovery does not adopt an unrelated profile. A never-created attempt can be abandoned only after checking that no matching container, private profile or kubeconfig exists. If ownership was not durably established for a partial cluster, Waypoint refuses automatic adoption or deletion and reports the missing receipt.
@@ -70,9 +71,9 @@ Mutations serialize through a kernel lock and require the current session/genera
 Import a selected plain YAML/JSON application directory, a Helm chart with ordered values, or a local Kustomize entry. Recursive YAML selection requires explicit `--recurse`; monorepos require an application/environment choice. Repository discovery does not deploy the entire GitOps control plane:
 
 ```sh
-npx waypoint import /path/to/repository --list
-npx waypoint import /path/to/repository --entry apps/my-app --values apps/my-app/values-dev.yaml
-npx waypoint import /path/to/gitops --entry chart --values apps/production/my-app/values.yaml
+waypoint import /path/to/repository --list
+waypoint import /path/to/repository --entry apps/my-app --values apps/my-app/values-dev.yaml
+waypoint import /path/to/gitops --entry chart --values apps/production/my-app/values.yaml
 ```
 
 Helm must be installed for chart imports (`WAYPOINT_HELM_BIN` can select its binary). Chart dependencies are resolved in a temporary copy; original repositories are not modified. Kustomize uses `kubectl kustomize`, including contained overlays, components, generators and replacements, with no executable plugins or embedded Helm. Remote bases must be fetched explicitly first. Select one application/environment rather than rendering every environment together. Encrypted files are not decrypted or copied as production secrets.
@@ -103,7 +104,7 @@ It imports a point-in-time snapshot with capture time and partial-access errors.
 
 ChatGPT sign-in is required. Run `waypoint start`, open its one-time connect link, then choose **Sign in with ChatGPT**. `--dev` is rejected; there is no anonymous development account. Subscription inference requires an eligible plan and authorized scopes. The CLI and browser share the active account, with protected credentials and project storage kept on this computer.
 
-A healthy lab can request **Create an incident with ChatGPT**. Review the outgoing probe/Service summary before sending. Waypoint validates the proposed target, progressive hints and typed grading checklist. No model-generated shell code or grader code runs. Actual Kubernetes evidence and deterministic recovery checks decide completion. Currently generated incidents use the supported readiness/liveness fault primitives; this is not unrestricted cluster mutation.
+A healthy lab can request **Create an incident with ChatGPT**. Review the outgoing target and applicable fault choices before sending. Waypoint validates the proposed incident, exact workload, progressive hints, and code-defined grading checklist. The app displays the concrete operation and repair before starting it. No model-generated shell code, YAML, cluster target, or grader code runs. Actual Kubernetes evidence and deterministic recovery checks decide completion; this is not unrestricted cluster mutation.
 
 The existing question flow previews sanitized, selected source evidence before sending it to OpenAI. Local hosting does not make inference local. Raw logs, ConfigMap values and Secret values are excluded. AI explains evidence; deterministic Kubernetes checks decide recovery. Select a lab resource and use its **Ask ChatGPT** action to review a bounded, sanitized observation snapshot. Answers are tied to that resource UID and lab revision; running operations, stale caches, resets and replaced Pods require a new review.
 
@@ -122,7 +123,7 @@ PLAYGROUND_STATE_DIR=/absolute/path/to/test-state \
 PLAYGROUND_E2E_ORIGIN=http://127.0.0.1:3120 \
 WAYPOINT_E2E_CONNECT_LOG=/absolute/path/to/owned-startup.log \
 WAYPOINT_E2E_CLI=/absolute/path/to/install/node_modules/.bin/waypoint \
-WAYPOINT_E2E_FIXTURE=/absolute/path/to/install/node_modules/kubernetes-learning-playground/examples/local-http \
+WAYPOINT_E2E_FIXTURE=/absolute/path/to/install/node_modules/waypoint-k8s/examples/local-http \
 pnpm exec playwright test tests/e2e/minikube-practice.spec.ts
 ```
 

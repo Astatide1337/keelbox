@@ -10,11 +10,9 @@ export default defineConfig({
     viewport: { width: 1366, height: 768 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    launchOptions: {
-      executablePath:
-        process.env.PLAYWRIGHT_CHROMIUM_PATH ??
-        "/home/sohamb/.cache/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell",
-    },
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH }
+      : {},
   },
   reporter: [["list"], ["html", { open: "never" }]],
 });

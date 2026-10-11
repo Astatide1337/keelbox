@@ -1,9 +1,19 @@
 import { z } from "zod";
+import type { LiveIncidentId } from "../domain/live-incidents";
 
 /** Browser progress is notes, not a grade or permission to mutate a cluster. */
 export const learningContextSchema = z
   .object({
-    lesson: z.enum(["healthy", "readiness", "liveness"]),
+    lesson: z.enum([
+      "healthy",
+      "readiness",
+      "liveness",
+      "service-selector",
+      "service-target-port",
+      "image-pull",
+      "configmap-key",
+      "market-data-stale",
+    ]),
     objective: z.string().max(500),
     hypothesis: z.string().max(1500),
     prediction: z.string().max(1500),
@@ -139,7 +149,13 @@ export function restoreProgress(serialized: string | null): LearningProgress {
     return emptyProgress();
   }
 }
-export const lessonCopy = {
+export const lessonCopy: Record<
+  "healthy" | LiveIncidentId,
+  {
+    objective: string;
+    hints: readonly [string, string, string];
+  }
+> = {
   healthy: {
     objective:
       "Trace desired replicas to running, ready Pods and their Service backends.",
@@ -165,6 +181,51 @@ export const lessonCopy = {
       "Inspect container restarts, last termination and recent kubelet events together. Counts alone do not identify a cause.",
       "Look for repeated liveness failures followed by a kubelet killing event. Readiness and liveness have different effects.",
       "Compare the selected container's liveness probe with its healthy baseline. Preserve the probe and its dependencies.",
+    ],
+  },
+  "service-selector": {
+    objective:
+      "Trace a Service with no matching endpoints while its target workload remains healthy.",
+    hints: [
+      "Compare Service selector keys and values with Pod template labels.",
+      "Inspect EndpointSlices and target Pod UIDs.",
+      "Restore the reviewed selector and verify a request through the Service.",
+    ],
+  },
+  "service-target-port": {
+    objective:
+      "Explain why ready endpoints can still fail when a Service maps to the wrong target port.",
+    hints: [
+      "Separate Service port from targetPort.",
+      "Compare named targetPort with declared container ports.",
+      "Restore the reviewed targetPort and verify Service HTTP traffic.",
+    ],
+  },
+  "image-pull": {
+    objective:
+      "Use structured Pod waiting state to diagnose an unavailable image and restore the reviewed image.",
+    hints: [
+      "Inspect the complete image and the Pod waiting reason.",
+      "Separate image pull errors from a container process crash.",
+      "Restore the reviewed prebuilt image and observe the rollout.",
+    ],
+  },
+  "configmap-key": {
+    objective:
+      "Trace a startup configuration error to a missing non-secret ConfigMap key.",
+    hints: [
+      "Inspect Pod waiting state and events.",
+      "Compare configMapKeyRef name/key with the ConfigMap in the same namespace.",
+      "Restore the key reference and verify the application becomes Ready.",
+    ],
+  },
+  "market-data-stale": {
+    objective:
+      "Distinguish a live producer process from a fresh synthetic quote sequence, then prove recovery.",
+    hints: [
+      "Compare feed_id and sequence over time; duplicate sequences do not refresh freshness.",
+      "Compare producer /livez and /readyz with consumer /metrics and /readyz.",
+      "Confirm the consumer leaves ready EndpointSlices and returns after a later sequence.",
     ],
   },
 } as const;

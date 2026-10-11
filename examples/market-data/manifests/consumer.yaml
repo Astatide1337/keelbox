@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: market-consumer
+spec:
+  type: ClusterIP
+  selector:
+    app: market-consumer
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: market-consumer
+  labels:
+    app.kubernetes.io/part-of: waypoint-market-data-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: market-consumer
+  template:
+    metadata:
+      labels:
+        app: market-consumer
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: consumer
+          image: python:3.12.15-slim-trixie
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-u", "/app/consumer.py"]
+          ports:
+            - name: http
+              containerPort: 8081
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+            - name: PRODUCER_URL
+              value: "http://market-producer:8080/quote"
+            - name: POLL_INTERVAL_SECONDS
+              value: "0.25"
+            - name: MAX_DATA_AGE_SECONDS
+              value: "3.0"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: 10m
+              memory: 48Mi
+            limits:
+              cpu: 100m
+              memory: 96Mi
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 2
+            timeoutSeconds: 1
+            failureThreshold: 1
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+              readOnly: true
+      volumes:
+        - name: app-code
+          configMap:
+            name: market-consumer-code
+            defaultMode: 0444

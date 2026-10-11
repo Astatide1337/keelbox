@@ -29,7 +29,11 @@ import {
   type LearningContext,
 } from "@/lib/practice/live-learning";
 import type { Relationship } from "@/lib/domain/types";
-import { targetKey } from "@/lib/domain/generated-incident";
+import { targetKey } from "@/lib/domain/contract-target";
+import {
+  applicableIncidents,
+  incidentChoice,
+} from "@/lib/domain/live-incidents";
 import {
   Dialog,
   DialogContent,
@@ -381,6 +385,10 @@ export function LivePractice({
         dirty.current = false;
         revision.current = "";
       }
+      if (kind === "repair") {
+        dirty.current = false;
+        revision.current = "";
+      }
       if (kind === "reset") {
         setProgress(emptyProgress());
         setLogs(null);
@@ -548,12 +556,7 @@ export function LivePractice({
       lab.evidence.receivedAt,
       lab.revision,
     );
-    if (
-      lab.phase === "running" &&
-      !progress.before &&
-      (summary.pods.some((p) => p.ready === "False") ||
-        summary.events.some((e) => e.reason === "Unhealthy"))
-    )
+    if (lab.phase === "running" && !!lab.incidentObservedAt && !progress.before)
       setProgress((p) => ({ ...p, before: summary }));
     if (lab.phase === "completed" && !progress.after)
       setProgress((p) => ({ ...p, after: summary }));
@@ -758,6 +761,12 @@ export function LivePractice({
         : [];
     },
   );
+  const selectedIncidentTarget =
+    incidentTarget ||
+    (lab?.plan.contract ? targetKey(lab.plan.contract, lab.namespace) : "");
+  const availableIncidents = lab
+    ? applicableIncidents(lab.plan, selectedIncidentTarget)
+    : [];
   const learning: LearningContext = {
     lesson: lab?.incident ?? "healthy",
     objective:
@@ -982,11 +991,23 @@ export function LivePractice({
         </p>
       ))}
       <Button
-        disabled={busy || stale || !!draftErrors.length || !dirty.current}
+        disabled={
+          busy ||
+          stale ||
+          !!draftErrors.length ||
+          !dirty.current ||
+          (!!lab?.incident && !["readiness", "liveness"].includes(lab.incident))
+        }
         onClick={() => action("apply", { source: draft })}
       >
         Apply repair
       </Button>
+      {lab?.incident && !["readiness", "liveness"].includes(lab.incident) && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          This incident only accepts its typed Waypoint repair above. User
+          authored YAML cannot expand the reviewed operation.
+        </p>
+      )}
     </>
   );
   return (
@@ -1050,11 +1071,9 @@ export function LivePractice({
       <div className="lab-strip">
         <div>
           <strong>
-            {lab.incident === "liveness"
-              ? "Liveness investigation"
-              : lab.incident === "readiness"
-                ? "Readiness investigation"
-                : "Local application"}
+            {lab.incident
+              ? incidentChoice(lab.incident).title
+              : "Local application"}
           </strong>
           <span>
             {lab.phase} {lab.operation ? "· " + lab.operation : ""} ·{" "}
@@ -1187,6 +1206,7 @@ export function LivePractice({
             key={[lab.id, lab.generation, lab.revision].join(":")}
             lab={lab}
             busy={busy || stale}
+            available={availableIncidents}
             onStart={(recipe, id) =>
               action("incident", {
                 incident: recipe.incident,
@@ -1195,71 +1215,89 @@ export function LivePractice({
               })
             }
           />
-          <Card>
-            <CardHeader>
-              <CardTitle>Readiness probe failure</CardTitle>
-              <CardDescription>
-                A process runs but its Pods stop becoming ready. Restore the
-                intended replicas and Service traffic.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                disabled={busy || stale || !lab.plan.contract}
-                onClick={() =>
-                  action("incident", {
-                    incident: "readiness",
-                    target: incidentTarget || undefined,
-                  })
-                }
-              >
-                Start readiness investigation
-              </Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Liveness probe failure</CardTitle>
-              <CardDescription>
-                Investigate kubelet failures and container restarts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                disabled={
-                  busy ||
-                  stale ||
-                  !(lab.plan.contracts ?? []).find(
-                    (c) =>
-                      targetKey(c, lab.namespace) ===
-                      (incidentTarget ||
-                        (lab.plan.contract
-                          ? targetKey(lab.plan.contract, lab.namespace)
-                          : "")),
-                  )?.livenessPath
-                }
-                onClick={() =>
-                  action("incident", {
-                    incident: "liveness",
-                    target: incidentTarget || undefined,
-                  })
-                }
-              >
-                Start liveness investigation
-              </Button>
-              {!(lab.plan.contracts ?? []).find(
-                (c) =>
-                  targetKey(c, lab.namespace) ===
-                  (incidentTarget ||
-                    (lab.plan.contract
-                      ? targetKey(lab.plan.contract, lab.namespace)
-                      : "")),
-              )?.livenessPath && (
-                <p className="mt-3">Requires an HTTP liveness probe.</p>
-              )}
-            </CardContent>
-          </Card>
+          {availableIncidents.map((choice) => (
+            <Card key={choice.id}>
+              <CardHeader>
+                <CardTitle>{choice.title}</CardTitle>
+                <CardDescription>{choice.objective}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <details open>
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Review the approved fault and repair plan
+                  </summary>
+                  <p className="mt-2 text-sm">{choice.operation}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Target: <code>{selectedIncidentTarget}</code>
+                  </p>
+                  <p className="mt-2 text-sm">Repair: {choice.repair}</p>
+                  <ol className="mt-2 list-inside list-decimal text-sm text-muted-foreground">
+                    {choice.hints.map((hint) => (
+                      <li key={hint}>{hint}</li>
+                    ))}
+                  </ol>
+                </details>
+                <Button
+                  disabled={busy || stale || !selectedIncidentTarget}
+                  onClick={() =>
+                    action("incident", {
+                      incident: choice.id,
+                      target: selectedIncidentTarget,
+                    })
+                  }
+                >
+                  Start investigation
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+      )}
+      {practice && lab.incident && (
+        <Card className="mx-4 my-3">
+          <CardHeader>
+            <CardTitle>Reviewed incident plan</CardTitle>
+            <CardDescription>
+              {incidentChoice(lab.incident).operation} The change is scoped to
+              the Waypoint-owned namespace {lab.namespace}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm">{incidentChoice(lab.incident).repair}</p>
+            {lab.incidentEvidence && (
+              <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                {Object.entries(lab.incidentEvidence).map(([name, value]) => (
+                  <div key={name}>
+                    <dt className="text-muted-foreground">{name}</dt>
+                    <dd className="break-all font-mono">
+                      {typeof value === "object"
+                        ? JSON.stringify(value)
+                        : String(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <Button
+              disabled={
+                busy ||
+                stale ||
+                lab.phase !== "running" ||
+                !lab.incidentObservedAt
+              }
+              onClick={() => action("repair")}
+            >
+              {lab.incident === "market-data-stale"
+                ? "Resume synthetic feed"
+                : "Reapply reviewed baseline"}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Waypoint derives the fault and repair from typed, validated
+              operations. Generated lesson text cannot supply commands, YAML, or
+              cluster targets.
+            </p>
+          </CardContent>
+        </Card>
       )}
       {practice && (lab.phase === "ready" || !!lab.incident) && (
         <Accordion
