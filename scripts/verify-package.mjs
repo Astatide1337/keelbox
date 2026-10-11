@@ -1,8 +1,9 @@
-import { readFile, mkdtemp, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { readFile, mkdtemp, readdir, realpath, rm } from "node:fs/promises";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+const projectRoot = process.cwd();
 const source = JSON.parse(await readFile("package.json", "utf8"));
 const archive = resolve(
   process.argv[2] ?? `${source.name}-${source.version}.tgz`,
@@ -67,6 +68,7 @@ try {
     "examples/market-data/tests/test_local.py",
     "examples/market-data/tools/measure_detection.py",
     "dist/ui/licenses/@fontsource-variable__inter-5.3.0/LICENSE",
+    "dist/ui/licenses/next-compiled/tar/LICENSE",
   ])
     if (!paths.includes(required))
       throw Error("Missing package file " + required);
@@ -114,6 +116,72 @@ try {
   );
   if (!thirdPartyNotices.includes("Inter variable font"))
     throw Error("Third-party notice inventory omits the Inter font.");
+  const nextRoot = await realpath(join(projectRoot, "node_modules", "next"));
+  const compiledRoot = join(nextRoot, "dist", "compiled");
+  const upstreamNotices = [];
+  async function collectUpstreamNotices(directory) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const file = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await collectUpstreamNotices(file);
+      } else if (
+        entry.isFile() &&
+        /(license|licence|notice|copying)/i.test(entry.name)
+      ) {
+        upstreamNotices.push({
+          source: file,
+          relative: relative(compiledRoot, file).split(sep).join("/"),
+        });
+      }
+    }
+  }
+  await collectUpstreamNotices(compiledRoot);
+  if (upstreamNotices.length === 0)
+    throw Error("No upstream Next.js vendored notices were found.");
+  const expectedVendoredPaths = upstreamNotices
+    .map(({ relative }) => "dist/ui/licenses/next-compiled/" + relative)
+    .sort();
+  const actualVendoredPaths = paths
+    .filter((p) => p.startsWith("dist/ui/licenses/next-compiled/"))
+    .sort();
+  if (
+    expectedVendoredPaths.length !== actualVendoredPaths.length ||
+    expectedVendoredPaths.some((p, i) => p !== actualVendoredPaths[i])
+  )
+    throw Error("Package omits or adds Next.js vendored license/notice files.");
+  for (const notice of upstreamNotices) {
+    const packaged = await readFile(
+      join(temp, "dist/ui/licenses/next-compiled", notice.relative),
+    );
+    const authentic = await readFile(notice.source);
+    if (!packaged.equals(authentic))
+      throw Error(
+        "Next.js vendored notice was not copied verbatim: " + notice.relative,
+      );
+  }
+  const tarMetadata = JSON.parse(
+    await readFile(join(compiledRoot, "tar", "package.json"), "utf8"),
+  );
+  const blueOakLicensePath = "next-compiled/tar/LICENSE";
+  const blueOakArchivePath = "dist/ui/licenses/" + blueOakLicensePath;
+  const blueOakLicense = await readFile(join(temp, blueOakArchivePath), "utf8");
+  if (
+    tarMetadata.license !== "BlueOak-1.0.0" ||
+    !blueOakLicense.includes("# Blue Oak Model License") ||
+    !blueOakLicense.includes("Version 1.0.0") ||
+    !thirdPartyNotices.includes(
+      "[" +
+        blueOakLicensePath +
+        "](dist/ui/licenses/" +
+        blueOakLicensePath +
+        ")",
+    ) ||
+    !thirdPartyNotices.includes("BlueOak-1.0.0")
+  )
+    throw Error(
+      "The authentic vendored tar Blue Oak license is not documented.",
+    );
+
   console.log(
     JSON.stringify({
       status: "PASS",
@@ -123,6 +191,8 @@ try {
       bytes,
       installHooks: false,
       staticAssets: true,
+      nextVendoredNoticeFiles: upstreamNotices.length,
+      blueOakTarLicense: "PASS",
       license: manifest.license,
       scanScope:
         "path exclusions and supported credential markers in text files <=5MB; not an exhaustive semantic secret detector",

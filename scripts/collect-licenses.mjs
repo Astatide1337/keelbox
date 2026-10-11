@@ -7,7 +7,7 @@ import {
   writeFile,
   cp,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 const root = process.cwd();
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
@@ -95,6 +95,85 @@ for (const { root: packageRoot, metadata } of packages.sort(
   });
 }
 
+const nextPackage = await packageAt("next", root);
+if (!nextPackage) throw Error("The installed Next.js package is missing.");
+const compiledRoot = join(nextPackage.root, "dist", "compiled");
+const bundledNotices = [];
+
+async function collectCompiledNotices(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const source = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await collectCompiledNotices(source);
+      continue;
+    }
+    if (
+      !entry.isFile() ||
+      !/(license|licence|notice|copying)/i.test(entry.name)
+    )
+      continue;
+
+    let packageRoot = dirname(source);
+    let metadata = null;
+    while (
+      packageRoot !== compiledRoot &&
+      packageRoot.startsWith(compiledRoot)
+    ) {
+      try {
+        const candidate = JSON.parse(
+          await readFile(join(packageRoot, "package.json"), "utf8"),
+        );
+        if (typeof candidate.name === "string") {
+          metadata = candidate;
+          break;
+        }
+      } catch {}
+      packageRoot = dirname(packageRoot);
+    }
+    if (!metadata)
+      throw Error(
+        "Missing bundled package metadata for Next.js notice " +
+          relative(compiledRoot, source),
+      );
+
+    const sourceRelative = relative(compiledRoot, source).split(sep).join("/");
+    const destination = "next-compiled/" + sourceRelative;
+    const destinationPath = join(output, destination);
+    await mkdir(dirname(destinationPath), { recursive: true });
+    await cp(source, destinationPath);
+    bundledNotices.push({
+      name: metadata.name,
+      version: metadata.version ?? "not declared in bundled package metadata",
+      license:
+        typeof metadata.license === "string"
+          ? metadata.license
+          : metadata.license
+            ? JSON.stringify(metadata.license)
+            : "unspecified by bundled package metadata",
+      file: destination,
+    });
+  }
+}
+
+await collectCompiledNotices(compiledRoot);
+if (
+  !bundledNotices.some((notice) => notice.file === "next-compiled/tar/LICENSE")
+)
+  throw Error("Next.js vendored tar license is missing.");
+const vendoredTarMetadata = JSON.parse(
+  await readFile(join(compiledRoot, "tar", "package.json"), "utf8"),
+);
+const vendoredTarLicense = await readFile(
+  join(compiledRoot, "tar", "LICENSE"),
+  "utf8",
+);
+if (
+  vendoredTarMetadata.license !== "BlueOak-1.0.0" ||
+  !vendoredTarLicense.includes("# Blue Oak Model License") ||
+  !vendoredTarLicense.includes("Version 1.0.0")
+)
+  throw Error("Next.js authentic Blue Oak Model License notice is missing.");
+
 const font = await packageAt("@fontsource-variable/inter", root);
 if (!font) throw Error("The bundled Inter font package is missing.");
 const fontLicense = await readFile(join(font.root, "LICENSE"));
@@ -124,11 +203,43 @@ for (const item of inventory) {
     `| ${item.name} | ${item.version} | ${item.license.replaceAll("|", "\\|")} | ${files} |`,
   );
 }
+lines.push(
+  "",
+  "## Next.js vendored dependencies",
+  "",
+  "Next.js " +
+    nextPackage.metadata.version +
+    " ships " +
+    bundledNotices.length +
+    " embedded third-party license and notice files. Each file below is copied verbatim from next/dist/compiled; package names, versions, and declared licenses come from the nearest bundled package.json.",
+  "",
+  "| Bundled package | Version | Declared license | Included notice file |",
+  "| --- | --- | --- | --- |",
+);
+for (const notice of bundledNotices.sort((a, b) =>
+  a.file.localeCompare(b.file),
+)) {
+  lines.push(
+    "| " +
+      notice.name.replaceAll("|", "\\|") +
+      " | " +
+      notice.version.replaceAll("|", "\\|") +
+      " | " +
+      notice.license.replaceAll("|", "\\|") +
+      " | [" +
+      notice.file +
+      "](dist/ui/licenses/" +
+      notice.file +
+      ") |",
+  );
+}
 await writeFile(join(root, "THIRD_PARTY_NOTICES.md"), lines.join("\n") + "\n");
 console.log(
   JSON.stringify({
     packages: inventory.length,
     fontLicense: "SIL OFL 1.1",
     noticeFiles: inventory.reduce((n, item) => n + item.files.length, 0),
+    nextVendoredNoticeFiles: bundledNotices.length,
+    blueOakTarLicense: "verified",
   }),
 );
