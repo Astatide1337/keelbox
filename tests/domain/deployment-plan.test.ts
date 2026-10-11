@@ -230,7 +230,9 @@ test("local Docker mapping is explicit, immutable, and never pulls from the regi
 });
 
 test("a metrics Service cannot hide the application Service practice contract", async () => {
-  const project = structuredClone(await readManifestInputs(["examples/local-http"]));
+  const project = structuredClone(
+    await readManifestInputs(["examples/local-http"]),
+  );
   project.files[0].content =
     "apiVersion: v1\nkind: Service\nmetadata: {name: metrics, namespace: demo}\nspec:\n  selector: {app: web}\n  ports: [{port: 9090, targetPort: 9090}]\n---\n" +
     project.files[0].content;
@@ -238,4 +240,19 @@ test("a metrics Service cannot hide the application Service practice contract", 
   assert(
     plan.contracts.some((c) => c.deployment === "web" && c.service === "web"),
   );
+});
+test("owned lab plan uses cache-first pull policy and leaves imported YAML unchanged", async () => {
+  const project = await readManifestInputs(["examples/local-http"]);
+  const original = JSON.stringify(project);
+  const plan = deploymentPlan(project, ns);
+  const deployments = plan.resources.filter((r) => r.kind === "Deployment");
+  assert(deployments.length > 0);
+  for (const dep of deployments) {
+    for (const container of list(
+      at(dep, "spec", "template", "spec", "containers"),
+    ))
+      assert.equal(container.imagePullPolicy, "IfNotPresent");
+  }
+  assert.equal(JSON.stringify(project), original);
+  assert(plan.changes.some((c) => c.includes("prefer a cached/local image")));
 });

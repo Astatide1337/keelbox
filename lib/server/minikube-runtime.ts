@@ -20,6 +20,7 @@ import {
   type LiveIncidentId,
 } from "../domain/live-incidents";
 import { LocalConfiguration } from "./local-configuration";
+import { dockerBuildContexts, resolveLocalImage } from "./local-images";
 import { run } from "./process";
 import { onProfileChange } from "./auth/session";
 import { doctor } from "../../cli/doctor";
@@ -779,6 +780,60 @@ export class MinikubeRuntime {
         throw Error(
           "Local image changed during loading. Review the deployment again.",
         );
+      await assertOwned(lab.target);
+    }
+    const buildContexts = dockerBuildContexts();
+    const images = new Set<string>();
+    const collectImages = (value: unknown) => {
+      if (Array.isArray(value)) return value.forEach(collectImages);
+      if (!value || typeof value !== "object") return;
+      for (const [key, child] of Object.entries(value)) {
+        if (key === "containers" || key === "initContainers")
+          for (const container of list(child)) {
+            const image = text(container.image);
+            if (image) images.add(image);
+          }
+        else collectImages(child);
+      }
+    };
+    collectImages(lab.plan.resources);
+    for (const reference of images) {
+      if (lab.plan.localImages.some((image) => image.reference === reference))
+        continue;
+      await assertOwned(lab.target);
+      const resolved = await resolveLocalImage(reference, buildContexts);
+      if (resolved.buildError)
+        console.warn(
+          `Local Docker build failed for ${reference}; trying registry fallback: ${resolved.buildError}`,
+        );
+      if (!resolved.imageId) continue;
+      await assertOwned(lab.target);
+      await run(
+        minikubeBinary(),
+        [
+          "image",
+          "load",
+          "--profile",
+          lab.target.profile,
+          "--daemon",
+          reference,
+        ],
+        {
+          env: environment(lab.target),
+          timeout: 180000,
+        },
+      );
+      const current = (
+        await run("docker", [
+          "image",
+          "inspect",
+          "--format",
+          "{{.Id}}",
+          reference,
+        ])
+      ).trim();
+      if (current !== resolved.imageId)
+        throw Error("Local Docker image changed while loading the owned lab.");
       await assertOwned(lab.target);
     }
     if (lab.plan.needsVault) {

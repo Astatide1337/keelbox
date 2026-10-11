@@ -533,6 +533,12 @@ export function deploymentPlan(
       for (const ref of list(pod.imagePullSecrets))
         requireSecret(text(ref.name), r.namespace ?? "default");
       for (const c of [...list(pod.initContainers), ...list(pod.containers)]) {
+        if (c.imagePullPolicy !== "Never") {
+          c.imagePullPolicy = "IfNotPresent";
+          changes.push(
+            `${r.kind}/${r.name}, container ${text(c.name)}: prefer a cached/local image before registry pulls`,
+          );
+        }
         const local = configuration.images?.find((i) => i.original === c.image);
         if (local) {
           c.image = local.reference;
