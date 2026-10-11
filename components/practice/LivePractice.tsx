@@ -14,12 +14,6 @@ import { observationFreshness } from "@/lib/domain/freshness";
 import { snapshotDigest } from "@/lib/domain/snapshot";
 import { LearningJourney } from "./LearningJourney";
 import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "../ui/accordion";
-import {
   emptyProgress,
   restoreProgress,
   learningKey,
@@ -33,6 +27,7 @@ import { targetKey } from "@/lib/domain/contract-target";
 import {
   applicableIncidents,
   incidentChoice,
+  type LiveIncidentChoice,
 } from "@/lib/domain/live-incidents";
 import {
   Dialog,
@@ -40,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogTrigger,
 } from "../ui/dialog";
 import {
   conditionSummary,
@@ -125,6 +121,15 @@ const retainedLabDrafts = new Map<
     positions: Record<string, { x: number; y: number }>;
   }
 >();
+const exerciseDescriptions: Record<LiveIncidentChoice["id"], string> = {
+  readiness: "A running app stops receiving traffic.",
+  liveness: "A failing health check repeatedly restarts a container.",
+  "service-selector": "A Service loses its connection to healthy Pods.",
+  "service-target-port": "Traffic is sent to the wrong container port.",
+  "image-pull": "A Pod cannot start with its configured image.",
+  "configmap-key": "A required configuration value is missing.",
+  "market-data-stale": "The app stays alive while its quotes stop updating.",
+};
 export function LivePractice({
   project,
   destination = "Practice",
@@ -219,6 +224,10 @@ export function LivePractice({
     "graph",
   );
   const [notebookOpen, setNotebookOpen] = useState(false);
+  const [deploymentOpen, setDeploymentOpen] = useState(false);
+  const [exerciseOpen, setExerciseOpen] = useState(false);
+  const [exerciseReview, setExerciseReview] =
+    useState<LiveIncidentChoice | null>(null);
   const [persistenceError, setPersistenceError] = useState("");
   function select(id: string | null) {
     setSelectedEdge(null);
@@ -407,8 +416,7 @@ export function LivePractice({
   const lab = view.lab,
     busy = pending || !!lab?.operation;
   useEffect(() => {
-    if (lab?.phase === "completed") setNotebookOpen(true);
-    else if (lab?.phase === "ready") setNotebookOpen(false);
+    if (lab?.phase === "ready") setNotebookOpen(false);
   }, [lab?.generation, lab?.phase]);
   const persistenceKey = lab
     ? learningKey(accountKey, sourceDigest, lab.id, lab.generation)
@@ -824,150 +832,166 @@ export function LivePractice({
       <div className="catalog">
         <Card>
           <CardHeader>
-            <CardTitle>Prepare a local application</CardTitle>
+            <CardTitle>Practice with {project.label}</CardTitle>
             <CardDescription>
-              Review {project.label} before deploying it to a private Waypoint
-              Minikube cluster.
+              Create a local copy to explore, break, and repair.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button
-              disabled={pending}
-              onClick={() => action("plan", { project })}
-            >
-              Review deployment
-            </Button>
+            <Dialog open={deploymentOpen} onOpenChange={setDeploymentOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  disabled={pending}
+                  onClick={() => action("plan", { project })}
+                >
+                  Review deployment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Deploy {project.label}</DialogTitle>
+                  <DialogDescription>
+                    Creates a separate local cluster using 2 CPUs and 4 GiB of
+                    memory.
+                  </DialogDescription>
+                </DialogHeader>
+                {pending && <p role="status">Preparing deployment review…</p>}
+                {error && (
+                  <p role="alert" className="text-destructive">
+                    {error}
+                  </p>
+                )}
+                {view.plan && !pending && (
+                  <>
+                    <Tabs defaultValue="overview">
+                      <TabsList>
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="changes">Changes</TabsTrigger>
+                        <TabsTrigger value="yaml">Manifests</TabsTrigger>
+                        <TabsTrigger value="settings">Options</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="overview" className="space-y-4">
+                        <p className="text-sm">
+                          Deploy {view.plan.resources.length} resources in a
+                          separate local namespace.
+                        </p>
+                        <ul className="space-y-2 text-sm">
+                          {[
+                            ...new Set(
+                              view.plan.resources.map((r) => text(r.kind)),
+                            ),
+                          ].map((kind) => (
+                            <li key={kind}>
+                              {kind}:{" "}
+                              {
+                                view.plan!.resources.filter(
+                                  (r) => text(r.kind) === kind,
+                                ).length
+                              }
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-sm text-muted-foreground">
+                          Your original application stays unchanged. Cleaning up
+                          this lab removes its local data.
+                          {view.plan.needsIngress &&
+                            " Includes an ingress controller."}
+                          {view.plan.needsVault &&
+                            " Includes a local Vault instance with test data."}
+                        </p>
+                      </TabsContent>
+                      <TabsContent value="changes" className="space-y-4">
+                        <ul className="space-y-2 text-sm">
+                          {view.plan.changes.map((c) => (
+                            <li key={c}>{c}</li>
+                          ))}
+                        </ul>
+                        <p className="text-sm text-muted-foreground">
+                          Your original application stays unchanged. Cleaning up
+                          this lab removes its local data.
+                          {view.plan.needsIngress &&
+                            " Includes an ingress controller."}
+                          {view.plan.needsVault &&
+                            " Includes a local Vault instance with test data."}
+                        </p>
+                      </TabsContent>
+                      <TabsContent value="yaml">
+                        <div className="h-80 overflow-hidden">
+                          <SourceEditor
+                            value={view.plan.source}
+                            onChange={() => {}}
+                            ranges={[]}
+                            readOnly
+                          />
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="settings" className="space-y-4">
+                        <LocalImages
+                          project={project}
+                          onSaved={() => void action("plan", { project })}
+                        />
+                        {!!view.plan.requirements?.length && (
+                          <details>
+                            <summary>Deployment requirements</summary>
+                            <ul className="mt-3 space-y-2 text-sm">
+                              {view.plan.requirements.map((r) => (
+                                <li key={r}>{r}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                    {!!view.plan.blockers.length && (
+                      <ul role="alert" className="space-y-2 text-destructive">
+                        {view.plan.blockers.map((b) => (
+                          <li key={b}>{b}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {!view.plan.contract && (
+                      <p className="text-sm text-muted-foreground">
+                        You can explore this application. Guided exercises need
+                        a compatible HTTP health check and Service.
+                      </p>
+                    )}
+                    <Button
+                      disabled={pending || !!view.plan.blockers.length}
+                      onClick={() => {
+                        setDeploymentOpen(false);
+                        void action("create", {
+                          planHash: view.plan!.planHash,
+                        });
+                      }}
+                    >
+                      Create local lab
+                    </Button>
+                  </>
+                )}
+                {!view.plan && !pending && error && (
+                  <Button onClick={() => action("plan", { project })}>
+                    Try again
+                  </Button>
+                )}
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
         {transport.state === "disconnected" && (
           <p role="status" className="notice">
-            Runtime disconnected: {transport.reason}{" "}
+            Connection lost.{" "}
             <Button
               variant="outline"
               onClick={() => setPollEpoch((v) => v + 1)}
             >
-              Retry connection
+              Reconnect
             </Button>
           </p>
         )}
-        {error && (
+        {error && !deploymentOpen && (
           <p role="alert" className="notice">
             {error}
           </p>
-        )}
-        {view.plan && (
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle>Deployment review</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {view.plan.capabilities && (
-                <details className="mb-4" open>
-                  <summary className="cursor-pointer">
-                    Application capabilities
-                  </summary>
-                  <dl className="grid grid-cols-2 gap-2 text-sm mt-3">
-                    {Object.entries(view.plan.capabilities).map(
-                      ([name, capability]) => (
-                        <div key={name}>
-                          <dt>
-                            {name === "exerciseEligible"
-                              ? "Exercise eligible"
-                              : name[0].toUpperCase() + name.slice(1)}
-                          </dt>
-                          <dd>
-                            {capability.status}
-                            {capability.reasons.length > 0 && (
-                              <ul className="text-xs text-muted-foreground">
-                                {capability.reasons.map((reason) => (
-                                  <li key={reason}>{reason}</li>
-                                ))}
-                              </ul>
-                            )}
-                          </dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                </details>
-              )}
-              {!!view.plan.requirements?.length && (
-                <details className="mb-4" open>
-                  <summary className="cursor-pointer">
-                    Runtime requirements
-                  </summary>
-                  <ul className="text-sm mt-2">
-                    {view.plan.requirements.map((requirement) => (
-                      <li key={requirement}>{requirement}</li>
-                    ))}
-                  </ul>
-                </details>
-              )}
-              <LocalImages
-                project={project}
-                onSaved={() => void action("plan", { project })}
-              />
-              <Tabs defaultValue="changes">
-                <TabsList>
-                  <TabsTrigger value="changes">Changes</TabsTrigger>
-                  <TabsTrigger value="yaml">Deployment YAML</TabsTrigger>
-                  <TabsTrigger value="effects">Cluster effects</TabsTrigger>
-                </TabsList>
-                <TabsContent value="changes">
-                  <ul className="my-4 space-y-2">
-                    {view.plan.changes.map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </TabsContent>
-                <TabsContent value="yaml">
-                  <div style={{ height: 350, overflow: "hidden" }}>
-                    <SourceEditor
-                      value={view.plan.source}
-                      onChange={() => {}}
-                      ranges={[]}
-                      readOnly
-                    />
-                  </div>
-                </TabsContent>
-                <TabsContent value="effects">
-                  <p className="my-4">
-                    Creates one dedicated Minikube Docker profile, private
-                    kubeconfig and namespace (2 CPUs, 4 GiB). Your normal
-                    context and source cluster remain unchanged. Trusted
-                    developer inputs only; this is not a hostile-workload
-                    sandbox.
-                    {view.plan.needsIngress &&
-                      " Installs the local nginx ingress controller."}
-                    {view.plan.needsVault &&
-                      " Installs the official HashiCorp Vault development server and Agent injector with local test data and cluster-local authentication."}
-                  </p>
-                </TabsContent>
-              </Tabs>
-              {view.plan.blockers.length > 0 && (
-                <ul role="alert" className="my-4 text-destructive">
-                  {view.plan.blockers.map((b) => (
-                    <li key={b}>{b}</li>
-                  ))}
-                </ul>
-              )}
-              {!view.plan.contract && (
-                <p className="my-4">
-                  This application can be deployed and inspected. Probe
-                  incidents require an HTTP readiness probe and a selecting
-                  Service; no compatible incident is available in this plan.
-                </p>
-              )}
-              <Button
-                disabled={pending || !!view.plan.blockers.length}
-                onClick={() =>
-                  action("create", { planHash: view.plan!.planHash })
-                }
-              >
-                Create local lab
-              </Button>
-            </CardContent>
-          </Card>
         )}
       </div>
     );
@@ -987,7 +1011,7 @@ export function LivePractice({
       </div>
       {draftErrors.map((d) => (
         <p role="alert" key={d.line}>
-          Line {d.line}: {d.message}. Draft retained; previous graph unchanged.
+          Line {d.line}: {d.message}.
         </p>
       ))}
       <Button
@@ -1004,8 +1028,7 @@ export function LivePractice({
       </Button>
       {lab?.incident && !["readiness", "liveness"].includes(lab.incident) && (
         <p className="mt-2 text-xs text-muted-foreground">
-          This incident only accepts its typed Waypoint repair above. User
-          authored YAML cannot expand the reviewed operation.
+          Use the repair button for this exercise.
         </p>
       )}
     </>
@@ -1022,17 +1045,17 @@ export function LivePractice({
           <DialogHeader>
             <DialogTitle>
               {reviewOperation?.kind === "reset"
-                ? "Review baseline reset"
+                ? "Reset this lab?"
                 : reviewOperation?.kind === "cleanup"
-                  ? "Clean up owned lab"
+                  ? "Delete this lab?"
                   : "Review one scheduled execution"}
             </DialogTitle>
             <DialogDescription>
               {reviewOperation?.kind === "run-cronjob"
                 ? `Create one Job from ${reviewOperation.target} in this owned lab. The existing schedule remains unchanged; this can write application data.`
                 : reviewOperation?.kind === "cleanup"
-                  ? "Delete only the verified Waypoint-owned cluster. Its Pods and local persistent-volume data will be removed."
-                  : "Reapply the reviewed baseline and start a new investigation notebook. Unsaved repair edits are discarded after reset succeeds."}
+                  ? "This removes the local cluster and all its data. Your original application stays unchanged."
+                  : "Restore the original configuration and start a new notebook. Unsaved repair edits will be discarded."}
             </DialogDescription>
           </DialogHeader>
           {reviewOperation?.kind === "reset" && (
@@ -1075,12 +1098,50 @@ export function LivePractice({
               ? incidentChoice(lab.incident).title
               : "Local application"}
           </strong>
-          <span>
-            {lab.phase} {lab.operation ? "· " + lab.operation : ""} ·{" "}
-            {lab.namespace}
+          <span role="status">
+            {lab.operation
+              ? "Working…"
+              : lab.phase === "completed"
+                ? "Recovered"
+                : lab.phase === "ready"
+                  ? "Ready"
+                  : lab.phase === "running"
+                    ? "Investigating"
+                    : lab.phase === "preparing"
+                      ? "Preparing…"
+                      : "Needs attention"}
           </span>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="ghost">Lab details</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Local lab</DialogTitle>
+                <DialogDescription>
+                  This is the separate cluster used for your practice.
+                </DialogDescription>
+              </DialogHeader>
+              <dl className="space-y-3 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Cluster</dt>
+                  <dd className="break-all">{lab.profile}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Namespace</dt>
+                  <dd className="break-all">{lab.namespace}</dd>
+                </div>
+              </dl>
+              <details>
+                <summary>Terminal commands</summary>
+                <pre className="mt-3 overflow-x-auto text-xs">
+                  {lab.terminal} get pods,services,endpointslices
+                </pre>
+              </details>
+            </DialogContent>
+          </Dialog>
           <Button
             variant="outline"
             disabled={busy}
@@ -1118,26 +1179,15 @@ export function LivePractice({
       )}
       {stale && (
         <p role="status" className="notice">
-          {transport.state === "disconnected"
-            ? "Runtime disconnected"
-            : "Evidence connecting or stale"}
-          . Last successful runtime response: {transport.lastSuccess ?? "none"}.
-          Last observation: {lab.evidence.receivedAt ?? "unavailable"}.{" "}
-          {transport.reason}{" "}
+          Live updates are unavailable.{" "}
           <Button variant="outline" onClick={() => setPollEpoch((v) => v + 1)}>
-            Retry connection
-          </Button>{" "}
-          {(
-            lab.evidence.connection?.reasons ??
-            evidenceConnection?.reasons ??
-            []
-          ).join(" · ")}
+            Reconnect
+          </Button>
         </p>
       )}
       {lab.phase === "preparing" && (
-        <p className="p-6">
-          Preparing the owned cluster and proving a healthy baseline. This can
-          take several minutes. Actual failures will appear here.
+        <p className="py-6" role="status">
+          Preparing your lab… This can take a few minutes.
         </p>
       )}
       {!!view.scheduledExecutions?.length && (
@@ -1175,149 +1225,156 @@ export function LivePractice({
           </CardContent>
         </Card>
       )}
-      {practice && lab.phase === "ready" && (
-        <div className="incident-grid">
-          <div className="col-span-full">
-            <Select
-              value={
-                incidentTarget ||
-                (lab.plan.contract
-                  ? targetKey(lab.plan.contract, lab.namespace)
-                  : "")
-              }
-              onValueChange={setIncidentTarget}
-            >
-              <SelectTrigger aria-label="Practice workload">
-                <SelectValue placeholder="Choose a workload" />
-              </SelectTrigger>
-              <SelectContent>
-                {(lab.plan.contracts ?? []).map((c) => (
-                  <SelectItem
-                    key={targetKey(c, lab.namespace)}
-                    value={targetKey(c, lab.namespace)}
-                  >
-                    {c.deployment} / {c.container} · {c.namespace}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <GenerateIncident
-            key={[lab.id, lab.generation, lab.revision].join(":")}
-            lab={lab}
-            busy={busy || stale}
-            available={availableIncidents}
-            onStart={(recipe, id) =>
-              action("incident", {
-                incident: recipe.incident,
-                target: recipe.target,
-                proposalId: id,
-              })
-            }
-          />
-          {availableIncidents.map((choice) => (
-            <Card key={choice.id}>
-              <CardHeader>
-                <CardTitle>{choice.title}</CardTitle>
-                <CardDescription>{choice.objective}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <details open>
-                  <summary className="cursor-pointer text-sm font-medium">
-                    Review the approved fault and repair plan
-                  </summary>
-                  <p className="mt-2 text-sm">{choice.operation}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Target: <code>{selectedIncidentTarget}</code>
-                  </p>
-                  <p className="mt-2 text-sm">Repair: {choice.repair}</p>
-                  <ol className="mt-2 list-inside list-decimal text-sm text-muted-foreground">
-                    {choice.hints.map((hint) => (
-                      <li key={hint}>{hint}</li>
-                    ))}
-                  </ol>
-                </details>
-                <Button
-                  disabled={busy || stale || !selectedIncidentTarget}
-                  onClick={() =>
-                    action("incident", {
-                      incident: choice.id,
-                      target: selectedIncidentTarget,
-                    })
-                  }
-                >
-                  Start investigation
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      {practice && lab.incident && (
-        <Card className="mx-4 my-3">
-          <CardHeader>
-            <CardTitle>Reviewed incident plan</CardTitle>
-            <CardDescription>
-              {incidentChoice(lab.incident).operation} The change is scoped to
-              the Waypoint-owned namespace {lab.namespace}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm">{incidentChoice(lab.incident).repair}</p>
-            {lab.incidentEvidence && (
-              <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                {Object.entries(lab.incidentEvidence).map(([name, value]) => (
-                  <div key={name}>
-                    <dt className="text-muted-foreground">{name}</dt>
-                    <dd className="break-all font-mono">
-                      {typeof value === "object"
-                        ? JSON.stringify(value)
-                        : String(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            <Button
-              disabled={
-                busy ||
-                stale ||
-                lab.phase !== "running" ||
-                !lab.incidentObservedAt
-              }
-              onClick={() => action("repair")}
-            >
-              {lab.incident === "market-data-stale"
-                ? "Resume synthetic feed"
-                : "Reapply reviewed baseline"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Waypoint derives the fault and repair from typed, validated
-              operations. Generated lesson text cannot supply commands, YAML, or
-              cluster targets.
-            </p>
-          </CardContent>
-        </Card>
-      )}
       {practice && (lab.phase === "ready" || !!lab.incident) && (
-        <Accordion
-          type="single"
-          collapsible
-          value={notebookOpen ? "notebook" : ""}
-          onValueChange={(value) => setNotebookOpen(value === "notebook")}
-        >
-          <AccordionItem value="notebook">
-            <AccordionTrigger>
-              {lab.phase === "completed"
-                ? "Recovery debrief"
-                : lab.incident
-                  ? "Investigation notebook"
-                  : "Healthy application guide"}{" "}
-              ·{" "}
-              {lab.recipe?.objective ??
-                lessonCopy[lab.incident ?? "healthy"].objective}
-            </AccordionTrigger>
-            <AccordionContent>
+        <div className="practice-toolbar">
+          {lab.phase === "ready" && (
+            <>
+              <Select
+                value={selectedIncidentTarget}
+                onValueChange={setIncidentTarget}
+              >
+                <SelectTrigger
+                  aria-label="Practice workload"
+                  className="w-full sm:w-64"
+                >
+                  <SelectValue placeholder="Choose a workload" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(lab.plan.contracts ?? []).map((c) => (
+                    <SelectItem
+                      key={targetKey(c, lab.namespace)}
+                      value={targetKey(c, lab.namespace)}
+                    >
+                      {c.deployment} / {c.container}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Dialog
+                open={exerciseOpen}
+                onOpenChange={(open) => {
+                  setExerciseOpen(open);
+                  if (!open) setExerciseReview(null);
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    disabled={busy || stale || !availableIncidents.length}
+                  >
+                    Choose exercise
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>
+                      {exerciseReview?.title ?? "Choose an exercise"}
+                    </DialogTitle>
+                    <DialogDescription>
+                      {exerciseReview
+                        ? exerciseReview.objective
+                        : "Choose a problem to investigate in your local lab."}
+                    </DialogDescription>
+                  </DialogHeader>
+                  {exerciseReview ? (
+                    <>
+                      <p className="text-sm">
+                        Workload:{" "}
+                        <strong>
+                          {selectedIncidentTarget
+                            .split("/")
+                            .slice(1)
+                            .join(" / ")}
+                        </strong>
+                      </p>
+                      <p className="text-sm">
+                        {exerciseReview.id === "market-data-stale"
+                          ? "Pause quote updates while the producer stays running."
+                          : `Introduce a ${exerciseReview.title.toLowerCase()} in this workload.`}{" "}
+                        Only this local lab changes.
+                      </p>
+                      <details className="text-sm">
+                        <summary>What changes</summary>
+                        <p className="mt-3">{exerciseReview.operation}</p>
+                        <p className="mt-2">Repair: {exerciseReview.repair}</p>
+                      </details>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setExerciseReview(null)}
+                        >
+                          Back
+                        </Button>
+                        <Button
+                          disabled={busy || stale || !selectedIncidentTarget}
+                          onClick={() => {
+                            const choice = exerciseReview;
+                            setExerciseOpen(false);
+                            setExerciseReview(null);
+                            void action("incident", {
+                              incident: choice.id,
+                              target: selectedIncidentTarget,
+                            });
+                          }}
+                        >
+                          Start investigation
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {availableIncidents.map((choice) => (
+                        <button
+                          key={choice.id}
+                          className="exercise-choice"
+                          onClick={() => setExerciseReview(choice)}
+                        >
+                          <strong>{choice.title}</strong>
+                          <span>{exerciseDescriptions[choice.id]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+              <GenerateIncident
+                key={[lab.id, lab.generation, lab.revision].join(":")}
+                lab={lab}
+                busy={busy || stale}
+                available={availableIncidents}
+                onStart={(recipe, id) =>
+                  action("incident", {
+                    incident: recipe.incident,
+                    target: recipe.target,
+                    proposalId: id,
+                  })
+                }
+              />
+            </>
+          )}
+          <Dialog open={notebookOpen} onOpenChange={setNotebookOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                {lab.phase === "completed"
+                  ? "Recovery debrief"
+                  : lab.incident
+                    ? "Investigation notebook"
+                    : "Healthy application guide"}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {lab.phase === "completed"
+                    ? "Recovery debrief"
+                    : lab.incident
+                      ? "Investigation notebook"
+                      : "Healthy application guide"}
+                </DialogTitle>
+                <DialogDescription>
+                  {lab.recipe?.objective ??
+                    lessonCopy[lab.incident ?? "healthy"].objective}
+                </DialogDescription>
+              </DialogHeader>
               <LearningJourney
                 incident={lab.incident}
                 completed={lab.phase === "completed"}
@@ -1333,39 +1390,91 @@ export function LivePractice({
                 onInspect={(tab) => {
                   setTab(tab);
                   setMobilePane("inspector");
+                  setNotebookOpen(false);
                 }}
                 onCheck={() => void action("check")}
                 disabled={busy || stale}
                 dirty={dirty.current}
               />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+            </DialogContent>
+          </Dialog>
+          {lab.incident && lab.phase !== "completed" && (
+            <>
+              <Button
+                variant="outline"
+                disabled={
+                  busy ||
+                  stale ||
+                  lab.phase !== "running" ||
+                  !lab.incidentObservedAt
+                }
+                onClick={() => action("repair")}
+              >
+                {lab.incident === "market-data-stale"
+                  ? "Resume synthetic feed"
+                  : "Reapply reviewed baseline"}
+              </Button>
+              <Button
+                disabled={
+                  busy || stale || dirty.current || !lab.incidentObservedAt
+                }
+                onClick={() => action("check")}
+              >
+                Check recovery
+              </Button>
+            </>
+          )}
+          {!!lab.checks.length && (
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="ghost">View checks</Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>
+                    {lab.phase === "completed"
+                      ? "Recovery verified"
+                      : "Lab checks"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Results from the most recent verification.
+                  </DialogDescription>
+                </DialogHeader>
+                <ul className="space-y-4">
+                  {lab.checks.map((c, i) => (
+                    <li key={i} className="space-y-1 text-sm">
+                      <strong
+                        className={
+                          c.passed ? "text-primary" : "text-destructive"
+                        }
+                      >
+                        {c.passed ? "✓" : "×"} {c.name}
+                      </strong>
+                      <p className="text-muted-foreground">{c.detail}</p>
+                      {!c.passed && (
+                        <Button
+                          variant="link"
+                          disabled={stale || busy}
+                          onClick={() => {
+                            setHelpField(undefined);
+                            setQuestionOpen(true);
+                          }}
+                        >
+                          Ask ChatGPT
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       )}
-      {practice && lab.checks.length > 0 && (
-        <ul className="lab-checks">
-          {lab.checks.map((c, i) => (
-            <li key={i} className={c.passed ? "pass" : ""}>
-              {c.passed ? "✓" : "×"} {c.name}
-              <details>
-                <summary>Evidence</summary>
-                <pre>{c.detail}</pre>
-              </details>
-              {!c.passed && (
-                <Button
-                  variant="link"
-                  disabled={stale || busy}
-                  onClick={() => {
-                    setHelpField(undefined);
-                    setQuestionOpen(true);
-                  }}
-                >
-                  Ask about this failed check
-                </Button>
-              )}
-            </li>
-          ))}
-        </ul>
+      {practice && lab.phase === "completed" && (
+        <p className="practice-success" role="status">
+          Recovery checks passed for this workload.
+        </p>
       )}
       <div className="lab-strip">
         {revealedFilters && (
@@ -1398,9 +1507,6 @@ export function LivePractice({
             ))}
           </select>
         </label>
-        <span className="text-muted-foreground">
-          Actual lab observations · source import unchanged
-        </span>
       </div>
       <div
         className="flex gap-2 px-4 py-2 md:hidden"
@@ -1939,17 +2045,6 @@ export function LivePractice({
           </section>
         </ResizablePanel>
       </ResizablePanelGroup>
-      <details className="lab-terminal">
-        <summary>Use your terminal</summary>
-        <pre>
-          {lab.terminal} get pods,services,endpointslices{"\n"}
-          {lab.terminal} edit deployment/{lab.plan.contract?.deployment}
-        </pre>
-        <p>
-          Your host shell is unrestricted. These commands explicitly target the
-          owned lab; do not switch your normal context.
-        </p>
-      </details>
     </div>
   );
 }

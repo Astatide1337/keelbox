@@ -1533,3 +1533,34 @@ main {
   .nav-item { min-height: 44px; }
   .resource-node button { min-height: 44px; }
 }
+
+/* Keep practice actions beside the live workspace; details open on demand. */
+.practice-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 16px;
+}
+.exercise-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+  padding: 14px 10px;
+  border-radius: 6px;
+  text-align: left;
+}
+.exercise-choice:hover {
+  background: var(--accent);
+}
+.exercise-choice span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.practice-success {
+  margin: 0 0 12px;
+  color: var(--success);
+}
