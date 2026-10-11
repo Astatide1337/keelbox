@@ -21,6 +21,8 @@ import {
 import type { Snapshot } from "@/lib/domain/snapshot";
 export function AppHeader({
   source,
+  environment = "source",
+  onEnvironment,
   connected,
   onImport,
   onExport,
@@ -31,6 +33,8 @@ export function AppHeader({
   navigationTrigger,
 }: {
   source: Snapshot;
+  environment?: "source" | "lab";
+  onEnvironment?: (value: "source" | "lab") => void;
   connected: boolean;
   onImport: () => void;
   onExport: () => void;
@@ -87,7 +91,9 @@ export function AppHeader({
           <DropdownMenuItem disabled>{source.label}</DropdownMenuItem>
           {account.status?.enabled && (
             <DropdownMenuItem onSelect={onAsk}>
-              Ask about this project
+              {environment === "lab"
+                ? "Ask about imported source"
+                : "Ask about this project"}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={onImport}>
@@ -96,8 +102,27 @@ export function AppHeader({
           <DropdownMenuItem onSelect={onExport}>Export source</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="header-origin">{origin}</span>
-      {capture && (
+      {onEnvironment ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              {environment === "lab" ? "Local lab" : origin}
+              <ChevronDown />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={() => onEnvironment("source")}>
+              Imported source
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onEnvironment("lab")}>
+              Local lab
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <span className="header-origin">{origin}</span>
+      )}
+      {capture && environment === "source" && (
         <span
           className="header-time"
           title={`${source.captureEndedAt} · capture time, not live`}

@@ -14,6 +14,7 @@ export function ownedStores(principal: Principal) {
     throw Error("Invalid profile identity.");
   const ownedRoot = key === "development" ? root : join(root, "profiles", key);
   return {
+    root: ownedRoot,
     project: new ProjectStore(ownedRoot),
     exercises: new ExerciseStore(join(ownedRoot, "exercises")),
     guard: () => assertPrincipal(principal),

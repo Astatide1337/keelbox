@@ -71,6 +71,7 @@ export type Check = {
   explanation: string;
 };
 export type Observation = {
+  live?: boolean;
   sessionId: string;
   generation: number;
   revision: number;

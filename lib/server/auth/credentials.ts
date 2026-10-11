@@ -135,7 +135,7 @@ export async function writeAccount(c: Credential) {
 }
 export async function listAccounts() {
   const root = await requireCredentialStorage(),
-    files = (await readdir(root)).filter((f) =>
+    files = (await readdir(/* turbopackIgnore: true */ root)).filter((f) =>
       /^account-[a-f0-9]{64}\.json$/.test(f),
     );
   if (files.length > 50)

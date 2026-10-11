@@ -5,16 +5,35 @@ import { homedir } from "node:os";
 const root =
   process.env.PLAYGROUND_STATE_DIR ??
   join(homedir(), ".local/state/kubernetes-learning-playground");
-test("development account dialog stays AI-off and has no inference controls", async ({
+test("signed-out workspace requires ChatGPT and has no anonymous mode", async ({
   page,
 }) => {
   const config = JSON.parse(await readFile(join(root, "server.json"), "utf8"));
   await page.setExtraHTTPHeaders({ Authorization: "Bearer " + config.token });
-  await page.goto("/");
-  await expect(page.getByRole("button", { name: "Open account" })).toHaveCount(
-    0,
+  await page.route("**/api/auth", (route) =>
+    route.fulfill({
+      json: {
+        enabled: true,
+        profile: null,
+        epoch: "signed-out",
+        csrf: "test",
+        accounts: [],
+        issues: [],
+        planEnabled: false,
+        needsWelcome: false,
+      },
+    }),
   );
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.goto("/");
+  await expect(
+    page.getByRole("button", { name: "Sign in with ChatGPT", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Practice", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Development mode", { exact: false }),
+  ).toHaveCount(0);
 });
 test("controlled auth boundary: failed consent keeps host draft; epoch switches restore each profile's malformed draft", async ({
   page,

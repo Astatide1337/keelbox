@@ -47,7 +47,7 @@ export const developmentProfile: Profile = {
   label: "Local development",
 };
 export function aiEnabled() {
-  return process.env.PLAYGROUND_AI_ENABLED === "1";
+  return true;
 }
 export function storageAllowed() {
   return aiEnabled() && process.env.PLAYGROUND_ALLOW_CREDENTIAL_STORAGE === "1";

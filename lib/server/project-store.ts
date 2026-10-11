@@ -1,3 +1,4 @@
+import { repositoryFiles } from "./repository-import";
 import {
   readFile,
   writeFile,
@@ -65,51 +66,11 @@ export class ProjectStore {
   }
 }
 export const projectStore = new ProjectStore();
-export async function readManifestInputs(paths: string[]): Promise<Snapshot> {
-  if (!paths.length)
-    throw Error("Usage: pnpm cli import folder-or-file [more.yaml]");
-  const expanded: string[] = [];
-  for (const input of paths) {
-    const path = resolve(input),
-      st = await lstat(path);
-    if (st.isSymbolicLink()) throw Error("Import symlinks are unsupported.");
-    if (st.isDirectory()) {
-      for (const item of (await readdir(path, { withFileTypes: true })).sort(
-        (a, b) => a.name.localeCompare(b.name),
-      ))
-        if (/\.ya?ml$/i.test(item.name)) {
-          if (!item.isFile())
-            throw Error("Import expects regular manifest files.");
-          expanded.push(join(path, item.name));
-        }
-    } else if (st.isFile()) expanded.push(path);
-    else throw Error("Import expects regular files or a manifest directory.");
-  }
-  if (!expanded.length || expanded.length > 100)
-    throw Error("Import needs 1–100 manifest files.");
-  const files: SourceFile[] = [];
-  let size = 0;
-  for (const path of expanded) {
-    const st = await lstat(path);
-    if (!st.isFile()) throw Error("Import expects regular files.");
-    size += st.size;
-    if (size > 2_000_000) throw Error("Import exceeds 2 MB.");
-    const content = await readFile(path, "utf8");
-    files.push({ id: randomUUID(), name: path, content });
-  }
-  if (
-    files.length === 1 &&
-    files[0].content.trim().startsWith("{") &&
-    files[0].content.includes("playground-snapshot-")
-  )
-    return importSnapshot(files[0].content);
-  const first = resolve(paths[0]);
-  const isDir = (await lstat(first)).isDirectory();
-  const label = isDir
-    ? basename(first) === "manifests"
-      ? basename(dirname(first))
-      : basename(first)
-    : basename(first);
-  const project = { ...manifestProject(files), label };
-  return importSnapshot(JSON.stringify(project));
+export async function readManifestInputs(paths: string[], options: {entry?:string; values?:string[]; release?:string} = {}): Promise<Snapshot> {
+  if (!paths.length) throw Error("Usage: waypoint import REPOSITORY [--entry APPLICATION] [--values FILE]");
+  const {files, notes} = await repositoryFiles(paths, options);
+  if(files.length===1 && files[0].content.trim().startsWith("{") && files[0].content.includes("playground-snapshot-")) return importSnapshot(files[0].content);
+  const first=resolve(paths[0]); const st=await lstat(first);
+  const label=options.entry ? basename(options.entry) : st.isDirectory() ? basename(first)==="manifests" ? basename(dirname(first)) : basename(first) : basename(first);
+  return importSnapshot(JSON.stringify({...manifestProject(files),label,errors:notes}));
 }

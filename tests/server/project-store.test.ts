@@ -17,7 +17,7 @@ import {
   ProjectStore,
   readManifestInputs,
 } from "../../lib/server/project-store";
-test("CLI project import validates before atomic owner-only selection; malformed/Secret imports preserve prior selection", async () => {
+test("CLI project import validates before atomic owner-only selection; malformed imports preserve selection; Secret values are stripped", async () => {
   const dir = await mkdtemp(join(tmpdir(), "waypoint-project-store-"));
   const store = new ProjectStore(join(dir, "state"));
   const file = join(dir, "service.yaml");
@@ -41,7 +41,9 @@ test("CLI project import validates before atomic owner-only selection; malformed
       file,
       "apiVersion: v1\nkind: List\nitems:\n- apiVersion: v1\n  kind: Secret\n  metadata:\n    name: forbidden\n  stringData:\n    token: example\n",
     );
-    await assert.rejects(readManifestInputs([file]), /Secret/);
+    const sanitized = await readManifestInputs([file]);
+    assert(!JSON.stringify(sanitized).includes("token: example"));
+    assert(sanitized.errors.some((e) => e.includes("values omitted")));
     assert.equal(await readFile(join(dir, "state/project.json"), "utf8"), old);
     await symlink(file, join(dir, "link.yaml"));
     await assert.rejects(
@@ -108,10 +110,15 @@ test("CLI collect publishes the captured snapshot using only explicit allowliste
       },
     );
     const saved = await new ProjectStore(state).load();
-    assert.equal(saved?.project.origin, "captured");
-    assert.equal(saved?.project.label, "minikube-test");
-    assert.equal(saved?.project.id, JSON.parse(await readFile(out, "utf8")).id);
-    assert.equal(saved?.project.coverage.length, 8);
+    assert.equal(
+      saved,
+      null,
+      "Offline collection must not create an anonymous project account",
+    );
+    const captured = JSON.parse(await readFile(out, "utf8"));
+    assert.equal(captured.origin, "captured");
+    assert.equal(captured.label, "minikube-test");
+    assert.equal(captured.coverage.length, 8);
     const invoked = (await readFile(calls, "utf8"))
       .trim()
       .split("\n")

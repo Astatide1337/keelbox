@@ -7,6 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { Button } from "../ui/button";
 import { AccountDialog } from "./AccountDialog";
 type Status = {
   enabled: boolean;
@@ -98,7 +99,29 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       value={{ status, error, refresh, open: () => setOpen(true), request }}
     >
       {ready ? (
-        <div key={status?.epoch ?? "offline"}>{children}</div>
+        <div key={status?.epoch ?? "offline"}>
+          {status?.profile ? (
+            children
+          ) : (
+            <main className="flex min-h-screen items-center justify-center p-8">
+              <div className="w-full max-w-sm space-y-6">
+                <h1 className="text-2xl font-semibold">Waypoint</h1>
+                <p className="text-muted-foreground">
+                  Explore your Kubernetes applications and practice debugging in
+                  your own local cluster.
+                </p>
+                <Button className="w-full" onClick={() => setOpen(true)}>
+                  Sign in with ChatGPT
+                </Button>
+                {error && (
+                  <p role="alert" className="text-sm">
+                    {error}
+                  </p>
+                )}
+              </div>
+            </main>
+          )}
+        </div>
       ) : (
         <main className="p-8 text-muted-foreground">
           Connecting local workspace…

@@ -41,6 +41,9 @@ export function QuestionDialog({
   scope: {
     resourceId?: string;
     relationshipId?: string;
+    labId?: string;
+    labGeneration?: number;
+    labRevision?: number;
     exerciseId?: string;
     exerciseRevision?: number;
   };
@@ -57,6 +60,7 @@ export function QuestionDialog({
       resourceId: scope.resourceId,
       relationshipId: scope.relationshipId,
       exerciseId: scope.exerciseId,
+      labId: scope.labId,
     });
   const [questions, setQuestions] = useState<Record<string, string>>({});
   const question =
@@ -74,7 +78,10 @@ export function QuestionDialog({
     [answer, setAnswer] = useState(""),
     [preview, setPreview] = useState<{
       digest: string;
-      context: { evidence: Evidence[] };
+      context: {
+        evidence: Evidence[];
+        project?: { live?: boolean; capturedAt?: string | null };
+      };
       question: string;
     } | null>(null);
   const revision = useRef<string | undefined>(undefined),
@@ -230,6 +237,7 @@ export function QuestionDialog({
                   setModel(v);
                   requestId.current = crypto.randomUUID();
                   setAnswer("");
+                  setPreview(null);
                 }}
               >
                 <SelectTrigger aria-label="Question model">
@@ -263,6 +271,13 @@ export function QuestionDialog({
             </Button>
             {preview && (
               <>
+                {preview.context.project?.live && (
+                  <p className="text-sm text-muted-foreground">
+                    Lab evidence captured at{" "}
+                    {preview.context.project.capturedAt}. The answer explains
+                    this captured state.
+                  </p>
+                )}
                 <p className="text-sm">
                   This request includes your question and filtered project
                   evidence. Secret data, configuration values, environment

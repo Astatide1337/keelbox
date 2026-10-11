@@ -1,4 +1,6 @@
 "use client";
+import { SecretsVault } from "@/components/configuration/SecretsVault";
+import { LivePractice } from "@/components/practice/LivePractice";
 import { QuestionDialog } from "@/components/auth/QuestionDialog";
 import { useAccount } from "@/components/auth/AccountProvider";
 import { useState, useMemo, useCallback, useRef, useEffect } from "react";
@@ -113,6 +115,7 @@ export function WorkspaceShell() {
     accountFetch = account.request;
   const profileKey = account.status?.profile?.key ?? "signed-out";
   const retained = useRef(profileDrafts.get(profileKey)).current;
+  const [environment, setEnvironment] = useState<"source" | "lab">("source");
   const [questionOpen, setQuestionOpen] = useState(false),
     [questionScope, setQuestionScope] = useState<{
       resourceId?: string;
@@ -125,9 +128,7 @@ export function WorkspaceShell() {
     [destination, setDestination] = useState(
       retained?.destination ?? "Topology",
     ),
-    [exercise, setExercise] = useState<Exercise | null>(
-      retained?.exercise ?? null,
-    ),
+    [exercise, setExercise] = useState<Exercise | null>(null),
     [incompatible, setIncompatible] = useState<{
       scenario: IncidentId;
       reasons: string[];
@@ -180,28 +181,10 @@ export function WorkspaceShell() {
         csrf.current = info.csrf;
         setConnected(true);
         setPersistence("Local checkpoint storage connected");
-        const id = url.searchParams.get("exercise");
-        if (id && !retained) {
-          const resume = await accountFetch(
-            "/api/practice?id=" + encodeURIComponent(id),
-          );
-          const saved = await resume.json();
-          if (!resume.ok) throw Error(saved.error);
-          if (!alive) return;
-          savedRevisions.current.set(id, saved.savedRevision);
-          setSource(importSnapshot(JSON.stringify(saved.project)));
-          setAnalysisFiles(saved.project.files);
-          setExercise(saved.exercise);
-          setDestination("Practice");
-          setPersistence(
-            "Exercise recovered from local checkpoint. Review the evidence before continuing.",
-          );
-        }
       } catch (e) {
         if (alive)
           setPersistence(
-            (e as Error).message +
-              " Browser practice remains available in memory.",
+            (e as Error).message + " Exploration remains available.",
           );
       }
     })();
@@ -311,6 +294,7 @@ export function WorkspaceShell() {
       }
     : null;
   function navigate(name: string) {
+    if (name === "Practice") setEnvironment("lab");
     startIdentity.current++;
     setBusy(false);
     setDestination(name);
@@ -642,6 +626,12 @@ export function WorkspaceShell() {
           <AppHeader
             navigationTrigger={navigationTrigger}
             source={source}
+            environment={destination === "Practice" ? "lab" : environment}
+            onEnvironment={(value) => {
+              setEnvironment(value);
+              if (value === "source" && destination === "Practice")
+                setDestination("Topology");
+            }}
             connected={connected}
             onImport={() => {
               setNotice("");
@@ -751,7 +741,7 @@ export function WorkspaceShell() {
             </h1>
             <p>
               {catalog
-                ? "Investigate incidents in a safe copy of your environment."
+                ? "Investigate actual incidents in your owned local application."
                 : currentExercise
                   ? incidents.find((i) => i.id === currentExercise.scenario)!
                       .symptom
@@ -769,7 +759,18 @@ export function WorkspaceShell() {
             {notice}
           </div>
         )}
-        {catalog ? (
+        {destination === "Secrets / Vault" ? (
+          <SecretsVault
+            project={source}
+            revision={projectRevision.current ?? undefined}
+          />
+        ) : destination === "Practice" || environment === "lab" ? (
+          <LivePractice
+            key={profileKey}
+            project={source}
+            destination={destination}
+          />
+        ) : catalog ? (
           <div className="catalog">
             <IncidentCatalog source={source} onStart={start} busy={busy} />
             {!connected && memoryExercises.current.size > 0 && (

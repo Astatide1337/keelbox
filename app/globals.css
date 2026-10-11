@@ -1354,3 +1354,150 @@ main {
 .react-flow__controls {
   right: 58px;
 }
+
+.live-practice {
+  padding: 0 24px 24px;
+  min-height: 0;
+  overflow: auto;
+  flex: 1;
+}
+.lab-strip {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.lab-strip > div:first-child {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.lab-strip span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.lab-panels {
+  height: 620px !important;
+  min-height: 480px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.resource-tree {
+  padding: 14px;
+  font-size: 12px;
+  overflow: auto;
+  height: 100%;
+}
+.resource-tree summary {
+  padding: 10px 0;
+  color: var(--muted);
+}
+.tree-resource {
+  width: 100%;
+  justify-content: flex-start;
+  font-size: 11px;
+  white-space: normal;
+  text-align: left;
+  height: auto;
+  min-height: 32px;
+}
+.tree-resource[aria-pressed="true"] {
+  background: var(--accent);
+}
+.tree-child {
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.live-inspector {
+  padding: 14px;
+  height: 100%;
+  overflow: auto;
+  font-size: 12px;
+}
+.live-inspector h2 {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+.live-inspector [data-slot="tabs-list"] {
+  flex-wrap: wrap;
+  height: auto;
+}
+.live-inspector dt {
+  color: var(--muted);
+  margin-top: 14px;
+}
+.live-inspector dd {
+  overflow-wrap: anywhere;
+}
+.live-inspector pre,
+.lab-terminal pre,
+.lab-checks pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 11px/1.6 var(--mono);
+  padding: 12px 0;
+}
+.lab-editor {
+  height: 360px;
+  position: relative;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.live-event {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.live-event small {
+  color: var(--muted);
+}
+.live-log {
+  max-height: 360px;
+  overflow: auto !important;
+}
+.lab-checks {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+}
+.lab-checks li {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.lab-terminal {
+  font-size: 12px;
+  padding: 14px 0;
+}
+.lab-terminal summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.lab-strip select {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+}
+.pass {
+  color: var(--success);
+}
+@media (max-width: 1000px) {
+  .live-practice {
+    padding: 0 16px 16px;
+  }
+  .lab-panels {
+    height: 760px !important;
+  }
+  .live-inspector {
+    padding: 10px;
+  }
+  .tree-resource {
+    font-size: 10px;
+  }
+}

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
   aiEnabled,
-  developmentProfile,
   type Profile,
   type Principal,
 } from "./identity";
@@ -19,8 +18,8 @@ const state = (global.waypointProfile ??= {
 });
 export function profileState() {
   return {
-    profile: aiEnabled() ? state.profile : developmentProfile,
-    epoch: aiEnabled() ? state.epoch : "development",
+    profile: state.profile,
+    epoch: state.epoch,
   };
 }
 export function activateProfile(profile: Profile | null) {

@@ -7,6 +7,7 @@ import {
   type EvidenceRef,
   type Relationship,
   type Resource,
+  type ObjectMap,
 } from "./types";
 function proof(r: Resource, path: string): EvidenceRef {
   return r.refs[path] ?? r.source;
@@ -35,7 +36,8 @@ export function podLabels(r: Resource) {
         )
       : object(at(r.raw, "spec", "template", "metadata", "labels"));
 }
-export function analyze(resources: Resource[]): Analysis {
+export function analyze(resources: Resource[], observed: ObjectMap[] = []): Analysis {
+  const uid = (r: Resource) => at(r.raw,"metadata","uid") ?? at(observed.find(o=>o.kind===r.kind&&at(o,"metadata","name")===r.name&&at(o,"metadata","namespace")===r.namespace),"metadata","uid");
   const relationships: Relationship[] = [];
   const workloads = resources.filter((r) =>
     [
@@ -273,23 +275,21 @@ export function analyze(resources: Resource[]): Analysis {
       }
     }
     for (const owner of list(at(r.raw, "metadata", "ownerReferences"))) {
-      const target =
-        resources.find(
-          (t) =>
-            t.kind === owner.kind &&
-            t.name === owner.name &&
-            t.namespace === r.namespace,
-        ) ?? null;
-      push(
-        r,
-        target,
-        "owns",
-        target ? "match" : "unresolved",
-        "Owner reference",
-        "Recorded ownerReference; actual UID ownership needs observed objects.",
-        [proof(r, "metadata.ownerReferences")],
-      );
+      const target = resources.find(t => t.namespace===r.namespace && t.kind===owner.kind && text(owner.uid) && uid(t)===owner.uid) ?? null;
+      if(target) push(target,r,"owns","match","Controller ownership","Observed ownerReference UID matches the parent UID.",[proof(r,"metadata.ownerReferences")]);
+      else push(r,null,"owns","unresolved","Unresolved owner UID","The referenced parent UID is not present; name equality is not ownership proof.",[proof(r,"metadata.ownerReferences")]);
     }
+    if(r.kind==="EndpointSlice"){
+      const name=text(at(r.raw,"metadata","labels","kubernetes.io/service-name"));
+      const service=resources.find(t=>t.kind==="Service"&&t.namespace===r.namespace&&t.name===name)??null;
+      if(service)push(service,r,"references","match","EndpointSlice association","Observed kubernetes.io/service-name label associates this slice with the Service.",[proof(r,"metadata.labels")]);
+      for(const endpoint of list(r.raw.endpoints)){
+        const ref=object(endpoint.targetRef),pod=resources.find(t=>t.kind===ref.kind&&t.namespace===r.namespace&&text(ref.uid)&&uid(t)===ref.uid)??null;
+        const ready=at(endpoint,"conditions","ready"),terminating=at(endpoint,"conditions","terminating");
+        push(r,pod,"references",!pod||typeof ready!=="boolean"?"unresolved":ready&&terminating!==true?"match":"mismatch","Endpoint target",`Endpoint ready=${String(ready??"unknown")}, terminating=${String(terminating??"unknown")}; UID target association. This does not prove HTTP traffic.`,[proof(r,"endpoints")]);
+      }
+    }
+
   }
   return {
     relationships,

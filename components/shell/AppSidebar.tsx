@@ -1,5 +1,6 @@
 "use client";
 import {
+  KeyRound,
   Network,
   Box,
   List,
@@ -15,6 +16,7 @@ export const destinations = [
   { name: "Events", icon: List },
   { name: "Manifest files", icon: File },
   { name: "Practice", icon: BookOpen },
+  { name: "Secrets / Vault", icon: KeyRound },
 ];
 export function AppSidebar({
   destination,

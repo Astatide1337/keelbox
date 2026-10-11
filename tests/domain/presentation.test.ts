@@ -85,3 +85,40 @@ test("missing readiness and endpoint observations remain unknown, and readiness 
   assert.equal(resourcePresentation(pod, observation).label, "Ready: False");
   assert(!resourcePresentation(pod, observation).label.includes("probe"));
 });
+test("live zero readiness and terminating endpoints do not become healthy", async () => {
+  const source = importSnapshot(
+    await readFile("examples/storefront/snapshot.json", "utf8"),
+  );
+  const resources = projectResources(source);
+  const dep = resources.find(
+      (r) => r.kind === "Deployment" && r.name === "web",
+    )!,
+    service = resources.find((r) => r.kind === "Service" && r.name === "web")!;
+  const observation: Observation = {
+    live: true,
+    sessionId: "x",
+    generation: 1,
+    revision: 0,
+    sequence: 0,
+    capturedAt: "",
+    errors: [],
+    resources: [
+      { ...dep.raw, status: { replicas: 2 } },
+      {
+        apiVersion: "discovery.k8s.io/v1",
+        kind: "EndpointSlice",
+        metadata: {
+          namespace: service.namespace,
+          labels: { "kubernetes.io/service-name": service.name },
+        },
+        endpoints: [{ conditions: { ready: true, terminating: true } }],
+      },
+    ],
+  };
+  assert.equal(resourcePresentation(dep, observation).label, "0 / 2 ready");
+  assert.equal(resourcePresentation(dep, observation).tone, "warning");
+  assert.equal(
+    resourcePresentation(service, observation, true).label,
+    "0 ready endpoints",
+  );
+});

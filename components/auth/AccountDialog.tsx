@@ -150,10 +150,7 @@ export function AccountDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Account</DialogTitle>
-          <DialogDescription>
-            The CLI and browser share one active account on this computer.
-            Projects stay local; AI requests go to OpenAI.
-          </DialogDescription>
+          <DialogDescription>Manage your ChatGPT connection.</DialogDescription>
         </DialogHeader>
         {account.error && <p role="alert">{account.error}</p>}
         {
@@ -218,36 +215,6 @@ export function AccountDialog({
               ))}
             {s.profile && (
               <>
-                <details>
-                  <summary className="cursor-pointer text-sm">
-                    Project migration
-                  </summary>
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      try {
-                        const r = await account.request("/api/project", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ kind: "copy-development" }),
-                        });
-                        const d = await r.json();
-                        if (!r.ok) throw Error(d.error);
-                        setMessage(
-                          "Development project copied. The original remains unchanged.",
-                        );
-                      } catch (e) {
-                        setMessage((e as Error).message);
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
-                  >
-                    Copy development project into this account
-                  </Button>
-                </details>
                 <Button
                   variant="ghost"
                   disabled={busy}

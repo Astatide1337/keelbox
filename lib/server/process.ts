@@ -2,12 +2,14 @@ import { spawn } from "node:child_process";
 export function run(
   command: string,
   args: string[],
-  options: { input?: string; timeout?: number; limit?: number } = {},
+  options: { input?: string; timeout?: number; limit?: number; env?: NodeJS.ProcessEnv; signal?: AbortSignal } = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
       shell: false,
+      env: options.env ?? process.env,
+      signal: options.signal,
     });
     let out = "",
       err = "",

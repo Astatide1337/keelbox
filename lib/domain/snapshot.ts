@@ -129,6 +129,16 @@ function containsSecret(resource: ObjectMap): boolean {
     resource.kind === "Secret" || list(resource.items).some(containsSecret)
   );
 }
+function hasSecretPayload(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(hasSecretPayload);
+  const v = object(value);
+  return (
+    (v.kind === "Secret" &&
+      (v.data !== undefined || v.stringData !== undefined)) ||
+    Object.values(v).some(hasSecretPayload)
+  );
+}
 export function importSnapshot(content: string): Snapshot {
   if (content.length > 2_000_000) throw Error("Snapshot exceeds 2 MB.");
   let input = object(JSON.parse(content));
@@ -161,7 +171,13 @@ export function importSnapshot(content: string): Snapshot {
   const authored = parseSources(result.files);
   if (authored.diagnostics.length)
     throw Error("Snapshot authored files contain invalid YAML.");
-  if (authored.resources.some((r) => r.kind === "Secret"))
+  if (
+    authored.resources.some(
+      (r) =>
+        hasSecretPayload(r.raw) ||
+        (result.origin !== "manifests" && containsSecret(r.raw)),
+    )
+  )
     throw Error("Snapshot authored files must not contain Secret values.");
   const captured = parseSources(capturedFiles(result));
   if (captured.resources.some((r) => r.kind === "Secret"))

@@ -8,3 +8,7 @@ test-results/
 *.tsbuildinfo
 *.kubeconfig
 credentials*.json
+
+dist/
+*.tgz
+.waypoint/

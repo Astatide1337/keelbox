@@ -47,7 +47,7 @@ test("body size bound rejects oversized input", async () => {
     /too large/,
   );
 });
-test("development mode cannot initiate OAuth or persist credentials", async () => {
+test("no-login environment flags cannot bypass the ChatGPT account requirement", async () => {
   delete process.env.PLAYGROUND_AI_ENABLED;
   delete process.env.PLAYGROUND_ALLOW_CREDENTIAL_STORAGE;
   await assert.rejects(beginSignIn("test-owner"), /disabled/);
@@ -65,7 +65,7 @@ test("development mode cannot initiate OAuth or persist credentials", async () =
       "unused",
       {},
     ),
-    /disabled/,
+    /Account changed|Continue with ChatGPT/,
   );
 });
 import { kubeconfigIdentity } from "../../lib/server/ownership";

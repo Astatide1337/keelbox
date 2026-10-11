@@ -1,3 +1,4 @@
+import { analyze } from "./analyzer";
 import {
   at,
   list,
@@ -49,7 +50,11 @@ export function resourcePresentation(
     };
   }
   if (["Deployment", "ReplicaSet"].includes(r.kind)) {
-    const ready = at(obs, "status", "readyReplicas"),
+    const ready =
+        at(obs, "status", "readyReplicas") ??
+        (observation?.live && at(obs, "status", "replicas") !== undefined
+          ? 0
+          : undefined),
       desired =
         at(r.raw, "spec", "replicas") ??
         (r.kind === "Deployment" ? 1 : "Unknown");
@@ -80,7 +85,11 @@ export function resourcePresentation(
               r.name,
         )
         .flatMap((o) => list(o.endpoints))
-        .filter((e) => at(e, "conditions", "ready") === true).length ?? 0;
+        .filter(
+          (e) =>
+            at(e, "conditions", "ready") === true &&
+            at(e, "conditions", "terminating") !== true,
+        ).length ?? 0;
     return {
       label: `${n} ready endpoints`,
       tone: n ? "healthy" : "warning",
@@ -88,7 +97,11 @@ export function resourcePresentation(
     };
   }
   return {
-    label: obs ? "Captured fields" : "Declared",
+    label: obs
+      ? observation?.live
+        ? "Observed"
+        : "Captured fields"
+      : "Declared",
     tone: "unknown",
     provenance,
   };
@@ -120,33 +133,11 @@ export function graphProjection(
     }
     return true;
   });
-  for (const child of resources) {
-    for (const ref of list(at(child.raw, "metadata", "ownerReferences"))) {
-      if (ref.controller !== true || !text(ref.uid)) continue;
-      const parent = resources.find(
-        (r) =>
-          r.namespace === child.namespace &&
-          r.kind === ref.kind &&
-          at(
-            snapshot ? capturedResource(snapshot, r) : r.raw,
-            "metadata",
-            "uid",
-          ) === ref.uid,
-      );
-      if (!parent) continue;
-      const proof = child.refs["metadata.ownerReferences"] ?? child.source;
-      result.push({
-        id: `owner:${parent.id}:${child.id}`,
-        from: parent.id,
-        to: child.id,
-        kind: "owns",
-        status: "match",
-        title: `${parent.kind} owns ${child.kind}`,
-        explanation:
-          "Inferred from the captured controller ownerReference UID, matched to the parent UID.",
-        evidence: [proof],
-      });
-    }
-  }
+  // Ownership is resolved once in the shared analyzer, using observed UIDs.
+  result.push(
+    ...analyze(resources, snapshot?.resources).relationships.filter(
+      (e) => e.kind === "owns",
+    ),
+  );
   return result;
 }
