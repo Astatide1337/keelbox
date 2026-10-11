@@ -1,0 +1,9 @@
+test_measurement_helper_accepts_only_loopback_origins (test_local.MarketDataLocalTest.test_measurement_helper_accepts_only_loopback_origins) ... ok
+test_measurement_helper_resumes_after_ambiguous_pause_response (test_local.MarketDataLocalTest.test_measurement_helper_resumes_after_ambiguous_pause_response) ... ok
+test_sequence_regression_breaks_freshness_invariant (test_local.MarketDataLocalTest.test_sequence_regression_breaks_freshness_invariant) ... ok
+test_services_exchange_quotes_staleness_and_recovery (test_local.MarketDataLocalTest.test_services_exchange_quotes_staleness_and_recovery) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.783s
+
+OK

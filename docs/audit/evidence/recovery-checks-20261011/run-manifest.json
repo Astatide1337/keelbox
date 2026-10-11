@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-11",
+  "baseRecoveryCommit": "a84d36bbac9e03c1ada4e954b1df7b1887ea116d",
+  "runtimes": {
+    "typecheckAndUnitTests": "Node v22.23.3",
+    "packageBuildAndInstall": "Node v24.14.0 / npm 11.9.0",
+    "fixtureHttpTests": "Python 3.14.7"
+  },
+  "checks": [
+    {
+      "name": "typecheck",
+      "command": "npm run typecheck -- --tsBuildInfoFile /tmp/waypoint-market-data-recovery-checks-a84d36b-20261011.tsbuildinfo",
+      "exitCode": 0,
+      "log": "typecheck.log"
+    },
+    {
+      "name": "unit-tests",
+      "command": "npm test",
+      "exitCode": 0,
+      "total": 116,
+      "passed": 114,
+      "skipped": 2,
+      "failed": 0,
+      "log": "unit-tests.log"
+    },
+    {
+      "name": "fixture-http-tests",
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s examples/market-data/tests -v",
+      "exitCode": 0,
+      "total": 4,
+      "passed": 4,
+      "failed": 0,
+      "log": "fixture-http-tests.log"
+    },
+    {
+      "name": "package-build",
+      "command": "npm pack --pack-destination /tmp/waypoint-market-data-recovery-evidence-status-20261011",
+      "exitCode": 0,
+      "builder": "prepack -> package:build -> next build --webpack",
+      "log": "package-build.log"
+    },
+    {
+      "name": "package-verify",
+      "command": "node scripts/verify-package.mjs /tmp/waypoint-market-data-recovery-evidence-status-20261011/waypoint-k8s-0.1.0.tgz",
+      "exitCode": 0,
+      "status": "PASS",
+      "files": 4358,
+      "textFilesScanned": 4347,
+      "unpackedBytes": 101351131,
+      "log": "package-verify.log",
+      "report": "../market-data-package-scan.json"
+    },
+    {
+      "name": "offline-install-and-cli-help",
+      "command": "npm install --offline --omit=dev --prefix /home/sohamb/Documents/Codex/2026-10-11/task-2/.waypoint-recovery-install-evidence-status-20261011 /tmp/waypoint-market-data-recovery-evidence-status-20261011/waypoint-k8s-0.1.0.tgz && /home/sohamb/Documents/Codex/2026-10-11/task-2/.waypoint-recovery-install-evidence-status-20261011/node_modules/.bin/waypoint help",
+      "exitCode": 0,
+      "log": "offline-install-help.log",
+      "temporaryInstallPrefixRemovedAfterCheck": true
+    }
+  ],
+  "package": {
+    "name": "waypoint-k8s",
+    "version": "0.1.0",
+    "archive": "/tmp/waypoint-market-data-recovery-evidence-status-20261011/waypoint-k8s-0.1.0.tgz",
+    "sha256": "927a479b3fea91d000c73610807016d1303c1fa01aeb814a685dc7b6bb1a77c5",
+    "published": false
+  },
+  "remoteCi": {
+    "checks": 0,
+    "runs": 0,
+    "source": "independent remote review"
+  },
+  "clusterVerification": "not-run"
+}

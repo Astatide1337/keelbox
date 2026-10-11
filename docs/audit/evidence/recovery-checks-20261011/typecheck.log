@@ -1,0 +1,4 @@
+
+> waypoint-k8s@0.1.0 typecheck
+> tsc --noEmit --tsBuildInfoFile /tmp/waypoint-market-data-recovery-checks-a84d36b-20261011.tsbuildinfo
+

@@ -2,6 +2,8 @@
 
 The fixture is available from Waypoint Practice after `waypoint demo market-data`. The package contains the Kustomize inputs, Python source, CPU-only HTTP checks, and the measured-detection helper. The repository also has an owned-lab proof helper at `scripts/prove-market-data-live.ts`; that helper is not included in the npm package. The scenario uses synthetic quotes, prebuilt official Python images, and no market-data credentials, Secrets, persistent storage, or image builds.
 
+> **Historical evidence only:** The bundled Minikube proof has a [separate status record](evidence/README.md). Its historical `PASS` does not verify the recovered source.
+
 ## Guided operation contract
 
 - Waypoint recognizes the fixture only when the producer and consumer Deployments, Services, probes, producer URL, and fixture marker match the reviewed contract.

@@ -1,5 +1,7 @@
 # Synthetic market-data freshness lab
 
+> **Evidence status:** The bundled [Minikube proof is historical only](evidence/README.md). It predates the recovered Pod-loopback controls and does not verify this source.
+
 This self-contained Waypoint Practice lab teaches a Kubernetes failure that a
 process-health check cannot detect: the producer is still serving HTTP, but its
 synthetic quote sequence has stopped advancing. The consumer keeps running,
