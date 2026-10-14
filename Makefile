@@ -43,7 +43,7 @@ fmt: lint-version
 
 check-layout:
 	@test ! -e reports && test ! -L reports && test ! -e research_notes && test ! -L research_notes || { printf 'Keep research and generated reports outside the repository.\n' >&2; exit 1; }
-	@links="$$(find cmd internal tools -type l -print)" || exit $$?; \
+	@links="$$(find cmd internal tools $(wildcard examples) -type l -print)" || exit $$?; \
 	test -z "$$links" || { printf 'Source symlinks are forbidden:\n%s\n' "$$links" >&2; exit 1; }
 
 # OUTPUT must name a new directory; artifacts are never published by this target.
