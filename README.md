@@ -240,3 +240,11 @@ Lint catches mechanical defects; design review must still assess ownership,
 state transitions, failure recovery, and whether a normal feature change stays
 within its owning module. Behavior regressions cover real invariants such as
 scoped ownership, data retention, applied-image access, and malformed input.
+
+## Try a first-party application
+
+[The Hello application](examples/hello/README.md) provides real Docker and
+Kubernetes inputs plus an opt-in, isolated runtime exercise. Its plain-YAML and
+Helm recipes share one set of manifests. The exercise covers local access,
+source iteration, resource reconciliation, and retained data; it records failures
+and cleanup results separately from offline unit and quality checks.
