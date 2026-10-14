@@ -22,6 +22,7 @@ type workloadObservation struct {
 	Spec   struct{ Replicas *int64 }
 	Status struct {
 		ObservedGeneration *int64
+		Replicas           int64
 		ReadyReplicas      int64
 		UpdatedReplicas    int64
 		AvailableReplicas  int64
@@ -108,7 +109,7 @@ func summarizeWorkload(data []byte) (string, string, error) {
 	}
 	desired := workload.Spec.Replicas
 	status := workload.Status
-	if desired == nil || *desired < 0 || status.ReadyReplicas < 0 || status.UpdatedReplicas < 0 || status.AvailableReplicas < 0 {
+	if desired == nil || *desired < 0 || status.Replicas < 0 || status.ReadyReplicas < 0 || status.UpdatedReplicas < 0 || status.AvailableReplicas < 0 {
 		return "", "", fmt.Errorf("missing or invalid replica counts")
 	}
 	counts := fmt.Sprintf("%d/%d", status.ReadyReplicas, *desired)
@@ -119,12 +120,20 @@ func summarizeWorkload(data []byte) (string, string, error) {
 		return counts, "unavailable: " + failure, nil
 	}
 	if *desired == 0 {
+		if workload.hasObservedReplicas() {
+			return counts, "scaling down: observed replicas remain", nil
+		}
 		return counts, "scaled to zero", nil
 	}
 	if status.ReadyReplicas < *desired || status.UpdatedReplicas < *desired || (workload.Kind == "Deployment" && status.AvailableReplicas < *desired) {
 		return counts, "not ready: waiting for ready, updated replicas", nil
 	}
 	return counts, "ready (Kubernetes workload)", nil
+}
+
+func (workload workloadObservation) hasObservedReplicas() bool {
+	status := workload.Status
+	return status.Replicas != 0 || status.ReadyReplicas != 0 || status.UpdatedReplicas != 0 || status.AvailableReplicas != 0
 }
 
 func (workload workloadObservation) controllerFailure() string {
