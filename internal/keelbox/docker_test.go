@@ -11,7 +11,7 @@ import (
 func TestMissingDockerStopsUpWithInstallGuidance(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("DOCKER_HOST", "")
-	e := &environment{}
+	e := &environment{config: &projectConfig{Build: []buildSpec{{Name: "api"}}}}
 	err := e.up(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "not found in PATH") || !strings.Contains(err.Error(), "https://docs.docker.com/engine/install/") {
 		t.Fatalf("expected actionable prerequisite failure before build or cluster work, got %v", err)

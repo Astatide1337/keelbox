@@ -81,6 +81,18 @@ func buildFingerprint(b buildSpec) (string, error) {
 }
 
 func (e *environment) build(ctx context.Context, only string) error {
+	if len(e.config.Build) == 0 && only == "" {
+		return nil
+	}
+	if only != "" {
+		found := false
+		for _, b := range e.config.Build {
+			found = found || b.Name == only
+		}
+		if !found {
+			return fmt.Errorf("unknown image %q", only)
+		}
+	}
 	current, err := localDocker(ctx)
 	if err != nil {
 		return err
@@ -95,18 +107,13 @@ func (e *environment) build(ctx context.Context, only string) error {
 	for _, image := range e.state.Images {
 		e.state.Artifacts[image.Tag] = image
 	}
-	found := false
 	for _, b := range e.config.Build {
 		if only != "" && b.Name != only {
 			continue
 		}
-		found = true
 		if buildErr := e.buildImage(ctx, current, b); buildErr != nil {
 			return buildErr
 		}
-	}
-	if !found {
-		return fmt.Errorf("unknown image %q", only)
 	}
 	return nil
 }

@@ -74,6 +74,10 @@ func (e *environment) up(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	appliedImages, err := appliedImageReferences(objects)
+	if err != nil {
+		return err
+	}
 	if err = e.ensureCluster(ctx); err != nil {
 		return err
 	}
@@ -105,10 +109,7 @@ func (e *environment) up(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	e.state.AppliedImages = map[string]imageArtifact{}
-	for name, image := range e.state.Images {
-		e.state.AppliedImages[name] = image
-	}
+	e.state.AppliedImages = appliedImages
 	e.state.Up = true
 	e.state.Endpoint = e.config.Endpoint
 	if err = e.save(); err != nil {

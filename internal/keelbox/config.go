@@ -149,8 +149,8 @@ func (c *projectConfig) resolveBuilds() error {
 }
 
 func (c *projectConfig) validateApplication() error {
-	if len(c.Build) == 0 || len(c.Workloads) == 0 {
-		return fmt.Errorf("declare at least one build and workload")
+	if len(c.Workloads) == 0 {
+		return fmt.Errorf("declare at least one workload")
 	}
 	for alias, target := range c.Workloads {
 		parts := strings.Split(target, "/")
