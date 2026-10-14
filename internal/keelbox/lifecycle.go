@@ -93,6 +93,9 @@ func (e *environment) up(ctx context.Context) error {
 			return err
 		}
 	}
+	if err = e.reconcileResources(ctx, objects); err != nil {
+		return err
+	}
 	targets := []string{}
 	for _, target := range e.config.Workloads {
 		targets = append(targets, target)
@@ -176,9 +179,6 @@ func (e *environment) down(ctx context.Context) error {
 			continue
 		}
 		if r.Kind == "StatefulSet" {
-			if err = e.setReplicas(ctx, r, 0); err != nil {
-				return err
-			}
 			retained = append(retained, r)
 			continue
 		}
@@ -238,11 +238,13 @@ func applyPayload(o object) (object, any, error) {
 	payload["spec"] = spec
 	return payload, replicas, nil
 }
-func (e *environment) setReplicas(ctx context.Context, r resourceRef, replicas any) error {
-	patch, err := json.Marshal([]map[string]any{
-		{"op": "test", "path": "/metadata/uid", "value": r.UID},
-		{"op": "add", "path": "/spec/replicas", "value": replicas},
-	})
+func (e *environment) setReplicas(ctx context.Context, r resourceRef, replicas any, version string) error {
+	operations := []map[string]any{{"op": "test", "path": "/metadata/uid", "value": r.UID}}
+	if version != "" {
+		operations = append(operations, map[string]any{"op": "test", "path": "/metadata/resourceVersion", "value": version})
+	}
+	operations = append(operations, map[string]any{"op": "add", "path": "/spec/replicas", "value": replicas})
+	patch, err := json.Marshal(operations)
 	if err != nil {
 		return err
 	}
@@ -331,7 +333,7 @@ func (e *environment) applyResource(ctx context.Context, o object) error {
 		return err
 	}
 	if replicas != nil {
-		if err = e.setReplicas(ctx, resource, replicas); err != nil {
+		if err = e.setReplicas(ctx, resource, replicas, ""); err != nil {
 			return err
 		}
 	}
@@ -351,33 +353,14 @@ func (e *environment) stopDatabases(ctx context.Context) error {
 		if actual == nil {
 			continue
 		}
-		if err = e.setReplicas(ctx, r, 0); err != nil {
+		if err = e.verifyRecordedResource(actual, r); err != nil {
 			return err
 		}
-		deadline := time.Now().Add(120 * time.Second)
-		for {
-			actual, err = e.observe(ctx, r)
-			if err != nil {
-				return err
-			}
-			if actual == nil {
-				return fmt.Errorf("retained StatefulSet disappeared")
-			}
-			count, replicaErr := observedReplicas(actual)
-			if replicaErr != nil {
-				return replicaErr
-			}
-			if count == 0 {
-				break
-			}
-			if time.Now().After(deadline) {
-				return fmt.Errorf("timed out stopping %s", r.Name)
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Second):
-			}
+		if err = safeStatefulRetention(actual); err != nil {
+			return err
+		}
+		if err = e.stopRetainedStatefulSet(ctx, r); err != nil {
+			return err
 		}
 	}
 	return nil

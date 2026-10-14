@@ -92,6 +92,14 @@ An advisory lock prevents concurrent environment writers.
 zero, waits for database shutdown, and preserves PVCs and the namespace. It retains the cluster and its
 control-plane memory. `up` restores the declared application and replicas.
 
+Repeated `up` compares the desired application with its recorded inventory and
+prints obsolete resources before reconciling them. Obsolete owned stateless
+objects are deleted using their recorded UIDs. Namespaces and PVCs are retained;
+removed StatefulSets are retained at zero replicas. Keelbox refuses scaling when
+a StatefulSet's `whenScaled` retention policy could delete PVC data. Replaced or
+unowned objects cause a failure, and accepted removals are saved individually so
+a later failure can be retried without forgetting unfinished work.
+
 Full removal destroys the selected owned cluster and its local database data:
 
 ```sh
