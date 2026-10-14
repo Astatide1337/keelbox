@@ -138,7 +138,28 @@ func (e *environment) reconcileObsolete(ctx context.Context, r resourceRef) erro
 }
 
 func (e *environment) stopRetainedStatefulSet(ctx context.Context, r resourceRef) error {
-	if err := e.setReplicas(ctx, r, 0); err != nil {
+	actual, err := e.observe(ctx, r)
+	if err != nil {
+		return err
+	}
+	if actual == nil {
+		return fmt.Errorf("retained StatefulSet disappeared")
+	}
+	if err = e.verifyRecordedResource(actual, r); err != nil {
+		return err
+	}
+	if err = safeStatefulRetention(actual); err != nil {
+		return err
+	}
+	meta, err := objectMetadata(actual)
+	if err != nil {
+		return err
+	}
+	version, ok := meta["resourceVersion"].(string)
+	if !ok || version == "" {
+		return fmt.Errorf("retained StatefulSet has no resourceVersion; refusing unsafe scale down")
+	}
+	if err = e.setReplicas(ctx, r, 0, version); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)

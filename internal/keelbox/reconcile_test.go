@@ -25,7 +25,8 @@ delete)
  /bin/cat "$5" >> "$KB_FIXTURE/deletions"
  /bin/rm -f "$KB_FIXTURE/$name.json"
  ;;
-patch) printf '%s\n' "$*" >> "$KB_FIXTURE/patches" ;;
+patch) if test "$KB_STALE" = 1; then printf 'resourceVersion test failed' >&2; exit 1; fi
+ printf '%s\n' "$*" >> "$KB_FIXTURE/patches" ;;
 *) exit 99 ;;
 esac
 `
@@ -35,6 +36,7 @@ esac
 	t.Setenv("PATH", dir)
 	t.Setenv("KB_FIXTURE", dir)
 	t.Setenv("KB_FAIL", "")
+	t.Setenv("KB_STALE", "")
 	e := &environment{dir: dir, kubeconfig: filepath.Join(dir, "kubeconfig"), state: environmentState{ID: "owned", Namespace: "dev", Context: "kind-owned", Resources: refs}}
 	for _, r := range refs {
 		writeReconciliationObject(t, e, r, "owned", r.UID)
@@ -44,7 +46,7 @@ esac
 
 func writeReconciliationObject(t *testing.T, e *environment, r resourceRef, owner, uid string) {
 	t.Helper()
-	o := object{"apiVersion": r.APIVersion, "kind": r.Kind, "metadata": map[string]any{"name": r.Name, "uid": uid, "annotations": map[string]any{"keelbox.dev/environment": owner}}, "spec": map[string]any{}, "status": map[string]any{"replicas": 0}}
+	o := object{"apiVersion": r.APIVersion, "kind": r.Kind, "metadata": map[string]any{"name": r.Name, "uid": uid, "resourceVersion": "observed-version", "annotations": map[string]any{"keelbox.dev/environment": owner}}, "spec": map[string]any{}, "status": map[string]any{"replicas": 0}}
 	if err := writeJSON(filepath.Join(e.dir, r.Name+".json"), o); err != nil {
 		t.Fatal(err)
 	}
@@ -212,5 +214,31 @@ func TestReconcileInterruptedRemovalCanBeRetried(t *testing.T) {
 	}
 	if len(e.state.Resources) != 0 {
 		t.Fatal("retry did not complete")
+	}
+}
+
+func TestReconcileStatefulSetScaleRejectsConcurrentPolicyChange(t *testing.T) {
+	r := resourceRef{APIVersion: "apps/v1", Kind: "StatefulSet", Name: "database", UID: "db"}
+	e := reconciliationEnvironment(t, []resourceRef{r})
+	t.Setenv("KB_STALE", "1")
+	if err := e.reconcileResources(t.Context(), nil); err == nil {
+		t.Fatal("concurrent resource change allowed scale down")
+	}
+	if len(e.state.Resources) != 1 {
+		t.Fatal("failed scale lost retained inventory")
+	}
+	if _, err := os.Stat(filepath.Join(e.dir, "patches")); !os.IsNotExist(err) {
+		t.Fatalf("unsafe scale accepted: %v", err)
+	}
+	t.Setenv("KB_STALE", "")
+	if err := e.reconcileResources(t.Context(), nil); err != nil {
+		t.Fatal(err)
+	}
+	patch, err := os.ReadFile(filepath.Join(e.dir, "patches"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(patch), `"path":"/metadata/resourceVersion","value":"observed-version"`) {
+		t.Fatalf("scale lacks atomic resourceVersion condition: %s", patch)
 	}
 }

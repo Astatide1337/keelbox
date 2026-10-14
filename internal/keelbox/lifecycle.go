@@ -179,9 +179,6 @@ func (e *environment) down(ctx context.Context) error {
 			continue
 		}
 		if r.Kind == "StatefulSet" {
-			if err = e.setReplicas(ctx, r, 0); err != nil {
-				return err
-			}
 			retained = append(retained, r)
 			continue
 		}
@@ -241,11 +238,13 @@ func applyPayload(o object) (object, any, error) {
 	payload["spec"] = spec
 	return payload, replicas, nil
 }
-func (e *environment) setReplicas(ctx context.Context, r resourceRef, replicas any) error {
-	patch, err := json.Marshal([]map[string]any{
-		{"op": "test", "path": "/metadata/uid", "value": r.UID},
-		{"op": "add", "path": "/spec/replicas", "value": replicas},
-	})
+func (e *environment) setReplicas(ctx context.Context, r resourceRef, replicas any, version string) error {
+	operations := []map[string]any{{"op": "test", "path": "/metadata/uid", "value": r.UID}}
+	if version != "" {
+		operations = append(operations, map[string]any{"op": "test", "path": "/metadata/resourceVersion", "value": version})
+	}
+	operations = append(operations, map[string]any{"op": "add", "path": "/spec/replicas", "value": replicas})
+	patch, err := json.Marshal(operations)
 	if err != nil {
 		return err
 	}
@@ -334,7 +333,7 @@ func (e *environment) applyResource(ctx context.Context, o object) error {
 		return err
 	}
 	if replicas != nil {
-		if err = e.setReplicas(ctx, resource, replicas); err != nil {
+		if err = e.setReplicas(ctx, resource, replicas, ""); err != nil {
 			return err
 		}
 	}
