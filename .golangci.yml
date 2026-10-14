@@ -9,6 +9,7 @@ linters:
   enable:
     - bodyclose
     - copyloopvar
+    - contextcheck
     - cyclop
     - durationcheck
     - errcheck

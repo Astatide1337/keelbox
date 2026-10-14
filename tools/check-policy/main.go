@@ -245,6 +245,7 @@ func lintFixtures() []lintFixture {
 		{"formatting", "package policyfixture\n// Probe exercises formatting.\nfunc Probe( ) int{return 1}\n", "gofmt"},
 		{"shadowing", "package policyfixture\nimport \"os\"\n// Probe exercises shadowing.\nfunc Probe(file *os.File) error { var err error; for { _, err := file.Stat(); if err != nil { break } }; return err }\n", "govet"},
 		{"complexity", complexitySource, "cyclop"},
+		{"lost-cancellation", "package policyfixture\nimport (\"context\"; \"os/exec\")\n// Probe exercises inherited cancellation.\nfunc Probe(ctx context.Context) error { if err := ctx.Err(); err != nil { return err }; return exec.CommandContext(context.Background(), \"unused\").Run() }\n", "contextcheck"},
 		{"static-analysis", "package policyfixture\nimport \"regexp\"\n// Probe exercises static analysis.\nfunc Probe() { regexp.MustCompile(\"[\") }\n", "staticcheck"},
 		{"unused-code", "package policyfixture\nfunc hidden() {}\n", "unused"},
 		{"builtin-shadowing", "package policyfixture\n// Probe exercises builtin naming.\nfunc Probe() { complex := 1; _ = complex }\n", "revive"},

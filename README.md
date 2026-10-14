@@ -146,6 +146,8 @@ make fmt    # Apply gofmt and goimports.
 make lint   # Verify the pinned version/config and inspect all code, including tests.
 make test   # Run behavior tests with race detection.
 make check  # Check layout, lint, policy enforcement, race tests, and CLI build.
+make fuzz   # Fuzz configuration and resource metadata for 10s each, two workers.
+make audit  # Scan reachable vulnerabilities, including tests (network required).
 ```
 
 For tools outside PATH, pass `GO=/absolute/path/to/go` and
@@ -158,17 +160,31 @@ temporary directories to prove important lint rules reject violations. These
 fixtures use the checked-in configuration; weakening a protected rule fails the
 gate even when ordinary source has no violations.
 
+`FUZZ_TIME=30s` extends active fuzzing. Fuzz seeds run with ordinary tests;
+failing inputs saved under `internal/keelbox/testdata/fuzz` become regression
+fixtures. YAML fuzzing uses a pure decoder and never resolves application paths.
+
+`make audit` runs the version in [.govulncheck-version](.govulncheck-version)
+through `go run`, outside product dependencies. The pin supports the Go baseline
+in `go.mod`. Findings and database/download failures fail the command. The scan
+uses the Go executable selected by `GO` and its native build configuration; it
+is not evidence for every OS, architecture, build tag, or reflection-only call.
+CI scans with the current stable Go release; its separate build/test job checks
+the minimum Go version in `go.mod`. Use a supported, patched Go toolchain for
+application builds; the minimum compiler version is not a security endorsement.
+
 The lint configuration rejects ignored errors (including explicit blank
 assignments), unchecked type assertions, shadowed variables, incorrect error
-wrapping, static-analysis defects, unused code, and functions exceeding a
-cyclomatic complexity of 20. Formatting and imports are also checked. There are
+wrapping, broken context inheritance, static-analysis defects, unused code, and
+functions exceeding a cyclomatic complexity of 20. Formatting and imports are also checked. There are
 no blanket exclusions or test exemptions. Specific lint suppressions require an
 explanation and review; changing rules to evade findings is not a fix.
 
-CI runs the same pinned lint version, layout and policy checks, race tests, and build for pushes and
+CI runs the same pinned lint version, layout and policy checks, race tests,
+bounded fuzzing, build, and a separate vulnerability scan for pushes and
 pull requests. Actions are pinned to commit IDs and the workflow has read-only
-repository permissions. Repository rules still need to require this check before
-merging; merely adding a workflow does not enforce branch protection.
+repository permissions. Required `quality` and `vulnerabilities` checks should
+protect the maintained integration branch; merely adding a workflow does not enforce branch protection.
 
 Lint catches mechanical defects; design review must still assess ownership,
 state transitions, failure recovery, and whether a normal feature change stays

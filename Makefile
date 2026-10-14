@@ -4,12 +4,14 @@ ifeq ($(origin LINT),default)
 LINT := golangci-lint
 endif
 LINT_VERSION := $(shell cat .golangci-version)
+VULN_VERSION := $(shell cat .govulncheck-version)
+FUZZ_TIME ?= 10s
 GO_BIN := $(shell command -v "$(GO)" 2>/dev/null)
 ifneq ($(GO_BIN),)
 export PATH := $(dir $(GO_BIN)):$(PATH)
 endif
 
-.PHONY: check build test lint lint-version check-policy fmt check-layout
+.PHONY: check build test fuzz audit lint lint-version check-policy fmt check-layout
 
 check: check-layout lint check-policy test build
 
@@ -18,6 +20,13 @@ build: check-layout
 
 test: check-layout
 	$(GO) test -race -count=1 ./...
+
+fuzz: check-layout
+	$(GO) test ./internal/keelbox -run='^$$' -fuzz='^FuzzConfig$$' -fuzztime=$(FUZZ_TIME) -parallel=2
+	$(GO) test ./internal/keelbox -run='^$$' -fuzz='^FuzzResourceMetadata$$' -fuzztime=$(FUZZ_TIME) -parallel=2
+
+audit: check-layout
+	$(GO) run golang.org/x/vuln/cmd/govulncheck@v$(VULN_VERSION) -test ./...
 
 lint-version: check-layout
 	@test "$$($(LINT) version --short)" = "$(LINT_VERSION)" || { printf 'Install golangci-lint v%s; see README.md.\n' '$(LINT_VERSION)' >&2; exit 1; }

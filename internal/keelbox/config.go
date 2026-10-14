@@ -71,18 +71,9 @@ func loadConfig(path string) (*projectConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := new(projectConfig)
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(true)
-	if err = decoder.Decode(c); err != nil {
-		return nil, fmt.Errorf("configuration: %w", err)
-	}
-	var extra any
-	if err = decoder.Decode(&extra); !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("configuration must contain one YAML document")
-	}
-	if c.Version != 1 || !dnsName.MatchString(c.Name) || !dnsName.MatchString(c.Namespace) {
-		return nil, fmt.Errorf("version must be 1; name and namespace must be lowercase DNS names")
+	c, err := decodeConfig(data)
+	if err != nil {
+		return nil, err
 	}
 	c.Path = absolute
 	c.Dir = filepath.Dir(absolute)
@@ -107,6 +98,25 @@ func loadConfig(path string) (*projectConfig, error) {
 	c.ID = hex.EncodeToString(sum[:])[:12]
 	return c, nil
 }
+
+// decodeConfig validates serialized configuration without inspecting the filesystem.
+func decodeConfig(data []byte) (*projectConfig, error) {
+	c := new(projectConfig)
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(c); err != nil {
+		return nil, fmt.Errorf("configuration: %w", err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("configuration must contain one YAML document")
+	}
+	if c.Version != 1 || !dnsName.MatchString(c.Name) || !dnsName.MatchString(c.Namespace) {
+		return nil, fmt.Errorf("version must be 1; name and namespace must be lowercase DNS names")
+	}
+	return c, nil
+}
+
 func resolve(base, path string) string {
 	if filepath.IsAbs(path) {
 		return filepath.Clean(path)

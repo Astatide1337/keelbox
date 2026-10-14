@@ -31,8 +31,9 @@ application as the default verification target.
    or invariant; documentation-only changes do not need artificial runtime tests.
    Avoid speculative interfaces, generic utility packages, and pass-through layers.
 
-Keep `Run` as the only exported production API of `internal/keelbox`. Keep other
-implementation types/functions private. JSON/YAML field names are compatibility
+The current production API of `internal/keelbox` exports only `Run`; keep other
+implementation types/functions private. A demonstrated new package boundary
+requires design review and an updated API policy, not incidental exports. JSON/YAML field names are compatibility
 contracts even when their Go types are private. Validate untyped input before
 using it; propagate actionable errors, cleanup failures, and cancellation with
 error identity preserved. Assign retries and child-process cleanup to one owner.
@@ -50,8 +51,12 @@ check are not a pass; report the exact missing prerequisite or failure.
 
 Run targeted tests while editing, then `make fmt` and `make check` for the final
 artifact. `make check` runs layout checks, lint, enforcement fixtures, race tests,
-and a build. Lint includes test files. The fixtures prove important rules still
-reject violations; adding a rule requires a corresponding violating fixture when
+and a build. Lint includes test files. Run `make fuzz` after parser changes and
+`make audit` before publishing code or dependency changes. CI runs both. Fuzz
+seeds run in ordinary tests; active fuzzing is bounded and uses first-party input.
+The audit needs network access and uses [.govulncheck-version](.govulncheck-version);
+a failed or unavailable scan is not a clean result. The fixtures prove important
+rules still reject violations; adding a rule requires a corresponding violating fixture when
 it protects a deterministic boundary.
 
 Do not disable rules, add blanket exclusions, skip tests, or use `nolint:all` to
