@@ -150,12 +150,11 @@ func rewriteImages(value any, builds []buildSpec, images map[string]imageArtifac
 	case object:
 		return rewriteImages(map[string]any(node), builds, images)
 	case map[string]any:
-		if image, ok := node["image"].(string); ok {
+		if image, ok := node["image"].(string); ok && !strings.Contains(image, "@") {
 			base := image
 			if i := strings.LastIndex(base, ":"); i > strings.LastIndex(base, "/") {
 				base = base[:i]
 			}
-			matched := false
 			for _, b := range builds {
 				if base == b.Image {
 					artifact, ok := images[b.Name]
@@ -164,12 +163,8 @@ func rewriteImages(value any, builds []buildSpec, images map[string]imageArtifac
 					}
 					node["image"] = artifact.Tag
 					node["imagePullPolicy"] = "IfNotPresent"
-					matched = true
 					break
 				}
-			}
-			if !matched {
-				return fmt.Errorf("resource image %s has no declared build mapping", image)
 			}
 		}
 		for _, v := range node {
@@ -265,4 +260,47 @@ func (e *environment) prepareResource(o object) (resourceRef, error) {
 		return resourceRef{}, err
 	}
 	return resource, nil
+}
+
+// appliedImageReferences records exact desired container references, including
+// registry images, so access never accepts a Pod from an older image rollout.
+func appliedImageReferences(objects []object) (map[string]imageArtifact, error) {
+	images := map[string]imageArtifact{}
+	for _, o := range objects {
+		kind, ok := o["kind"].(string)
+		if !ok {
+			return nil, fmt.Errorf("resource kind must be a string")
+		}
+		if kind != "Deployment" && kind != "StatefulSet" && kind != "Job" {
+			continue
+		}
+		spec, ok := o["spec"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s spec must be a mapping", kind)
+		}
+		template, ok := spec["template"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s Pod template must be a mapping", kind)
+		}
+		pod, ok := template["spec"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s Pod spec must be a mapping", kind)
+		}
+		containers, ok := pod["containers"].([]any)
+		if !ok || len(containers) == 0 {
+			return nil, fmt.Errorf("%s needs Pod containers", kind)
+		}
+		for _, value := range containers {
+			container, ok := value.(map[string]any)
+			if !ok {
+				return nil, fmt.Errorf("%s container must be a mapping", kind)
+			}
+			image, ok := container["image"].(string)
+			if !ok || image == "" {
+				return nil, fmt.Errorf("%s container image must be a nonempty string", kind)
+			}
+			images[image] = imageArtifact{Tag: image}
+		}
+	}
+	return images, nil
 }

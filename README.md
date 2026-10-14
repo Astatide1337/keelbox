@@ -48,6 +48,12 @@ leaves accepted workload state and detached access running.
 
 Change application files or manifests, then rerun `up -d`. Builds use Docker's
 cache and Dockerignore-aware input fingerprints; unchanged images are reused.
+The `build` list is optional: unmapped image references, including digest-pinned
+images, remain registry images with their original pull policy and credentials.
+A digest-pinned reference is never replaced by a local build, even for the same
+repository. Local build mappings replace tagged or untagged repository references;
+those images keep the generated local tag and `IfNotPresent` policy.
+`build` with no mappings is a no-op; an explicit unknown build name is an error.
 Image builds do not deploy anything. Application tests belong to the application: run
 its own commands with `exec`, or exercise it through localhost. Use `exec -it`
 for an interactive shell; omit `-it` for scripts. Startup readiness means the
