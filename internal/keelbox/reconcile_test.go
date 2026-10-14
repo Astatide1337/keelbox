@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func reconciliationEnvironment(t *testing.T, refs []resourceRef) *environment {
@@ -19,6 +20,7 @@ case "$1" in
 get) if test -f "$KB_FIXTURE/$3.json"; then /bin/cat "$KB_FIXTURE/$3.json"; fi ;;
 delete)
  name=${3##*/}
+ if test "$name-slow" = "$KB_FAIL"; then exec /bin/sleep 10; fi
  if test "$name" = "$KB_FAIL"; then printf 'injected failure' >&2; exit 1; fi
  /bin/cat "$5" >> "$KB_FIXTURE/deletions"
  /bin/rm -f "$KB_FIXTURE/$name.json"
@@ -189,5 +191,26 @@ func TestReconcileRefusesDestructiveStatefulSetRetention(t *testing.T) {
 	}
 	if _, err = os.Stat(filepath.Join(e.dir, "patches")); !os.IsNotExist(err) {
 		t.Fatalf("scaled destructive StatefulSet: %v", err)
+	}
+}
+
+func TestReconcileInterruptedRemovalCanBeRetried(t *testing.T) {
+	refs := []resourceRef{{APIVersion: "v1", Kind: "ConfigMap", Name: "first", UID: "one"}, {APIVersion: "v1", Kind: "Service", Name: "second", UID: "two"}}
+	e := reconciliationEnvironment(t, refs)
+	t.Setenv("KB_FAIL", "second-slow")
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+	defer cancel()
+	if err := e.reconcileResources(ctx, nil); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("interrupted removal lost cancellation: %v", err)
+	}
+	if len(e.state.Resources) != 1 || e.state.Resources[0] != refs[1] {
+		t.Fatalf("interrupted inventory: %#v", e.state.Resources)
+	}
+	t.Setenv("KB_FAIL", "")
+	if err := e.reconcileResources(t.Context(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.state.Resources) != 0 {
+		t.Fatal("retry did not complete")
 	}
 }

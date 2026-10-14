@@ -2,13 +2,19 @@ package keelbox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 )
 
 // Reconcile only the recorded inventory. Desired application writes are accepted
 // first, so a failed apply never starts removal of the previous application.
-func (e *environment) reconcileResources(ctx context.Context, desired []object) error {
+func (e *environment) reconcileResources(ctx context.Context, desired []object) (err error) {
+	defer func() {
+		if ctx.Err() != nil {
+			err = errors.Join(err, ctx.Err())
+		}
+	}()
 	wanted := map[string]bool{}
 	for _, o := range desired {
 		r, err := objectResource(o)
