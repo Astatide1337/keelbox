@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"sort"
 	"strings"
@@ -25,15 +26,15 @@ func Run(ctx context.Context, args []string) (err error) {
 		fmt.Println("Commands: doctor, config, build [image], up [-d], ps, logs [-f] <workload>, exec [-it] <workload> -- <command>, down, env rm --volumes")
 		return nil
 	}
+	if rest[0] == "doctor" {
+		return runDoctor(ctx, configPath, args)
+	}
 	c, err := loadConfig(configPath)
 	if err != nil {
 		return err
 	}
 	if rest[0] == "config" {
 		return printConfig(c)
-	}
-	if rest[0] == "doctor" {
-		return doctor(ctx, c)
 	}
 	e, err := openEnvironment(c)
 	if err != nil {
@@ -94,11 +95,43 @@ func doctor(ctx context.Context, c *projectConfig) error {
 		}
 		fmt.Println(name+":", path)
 	}
+	if c == nil {
+		fmt.Println("No keelbox.yaml found; machine prerequisites passed. Run doctor from a configured project for project diagnostics. No cluster was created.")
+		return nil
+	}
+	fmt.Printf("Project: %s; namespace: %s; configuration: %s\n", c.Name, c.Namespace, c.Path)
 	for _, b := range c.Build {
 		fmt.Printf("Build %s: %s\n", b.Name, b.Context)
 	}
-	fmt.Println("Doctor passed for the local Linux/Docker pilot. No cluster was created.")
+	for _, name := range sortedWorkloads(c) {
+		fmt.Printf("Workload %s: %s\n", name, c.Workloads[name])
+	}
+	fmt.Printf("Declared endpoint: http://localhost:%d → service/%s:%d\n", c.Endpoint.LocalPort, c.Endpoint.Service, c.Endpoint.Port)
+	fmt.Println("Project configuration and machine prerequisites passed. Workload readiness, localhost access, and application behavior were not checked. No cluster was created.")
 	return nil
+}
+
+// Missing default configuration is useful for machine diagnostics; an explicit path
+// and present configuration remain contracts and must not be silently ignored.
+func runDoctor(ctx context.Context, path string, args []string) error {
+	explicit := false
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "--config" {
+			explicit = true
+			break
+		}
+	}
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) && !explicit {
+		return doctor(ctx, nil)
+	}
+	c, err := loadConfig(path)
+	if err != nil {
+		return fmt.Errorf("cannot diagnose project configuration %q; correct the file or run doctor outside this project for machine checks: %w", path, err)
+	}
+	return doctor(ctx, c)
 }
 func sortedWorkloads(c *projectConfig) []string {
 	keys := []string{}
@@ -216,7 +249,7 @@ func (e *environment) environmentCommand(ctx context.Context, rest []string, vol
 
 func (e *environment) start(ctx context.Context, detached bool) error {
 	if err := e.up(ctx); err != nil {
-		return err
+		return fmt.Errorf("startup did not complete; accepted resources and data are retained. Correct the reported problem and retry up -d; use ps to observe a created environment: %w", err)
 	}
 	if !detached {
 		fmt.Println("Attached; Ctrl+C leaves application and access running. Use down to stop.")
