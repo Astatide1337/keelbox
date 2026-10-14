@@ -84,9 +84,8 @@ func loadConfig(path string) (*projectConfig, error) {
 	if info, e := os.Stat(c.Project); e != nil || !info.IsDir() {
 		return nil, fmt.Errorf("project directory does not exist: %s", c.Project)
 	}
-	c.Helm.Chart = resolve(c.Dir, c.Helm.Chart)
-	if c.Helm.Chart == c.Dir {
-		return nil, fmt.Errorf("helm.chart is required")
+	if c.Helm.Chart != "" {
+		c.Helm.Chart = resolve(c.Dir, c.Helm.Chart)
 	}
 	if err = c.resolveBuilds(); err != nil {
 		return nil, err
@@ -148,7 +147,33 @@ func (c *projectConfig) resolveBuilds() error {
 	return nil
 }
 
+func (c *projectConfig) validateManifestSources() error {
+	if c.Helm.Chart == "" {
+		if len(c.Helm.Values) > 0 || len(c.Helm.Dependencies) > 0 {
+			return fmt.Errorf("helm.values and helm.dependencies require helm.chart")
+		}
+		if len(c.Resources) == 0 {
+			return fmt.Errorf("declare helm.chart or resources manifest files")
+		}
+	}
+	for _, path := range c.Resources {
+		if trim(path) == "" {
+			return fmt.Errorf("resources must contain nonempty manifest file paths")
+		}
+	}
+
+	for _, d := range c.Helm.Dependencies {
+		if d.Source == "" || d.Destination == "" || filepath.IsAbs(d.Destination) {
+			return fmt.Errorf("invalid staged Helm dependency")
+		}
+	}
+	return nil
+}
+
 func (c *projectConfig) validateApplication() error {
+	if err := c.validateManifestSources(); err != nil {
+		return err
+	}
 	if len(c.Workloads) == 0 {
 		return fmt.Errorf("declare at least one workload")
 	}
@@ -164,10 +189,6 @@ func (c *projectConfig) validateApplication() error {
 	if c.EnvFile != "" && !dnsName.MatchString(c.SecretName) {
 		return fmt.Errorf("envFile requires a secretName")
 	}
-	for _, d := range c.Helm.Dependencies {
-		if d.Source == "" || d.Destination == "" || filepath.IsAbs(d.Destination) {
-			return fmt.Errorf("invalid staged Helm dependency")
-		}
-	}
+
 	return nil
 }

@@ -83,7 +83,11 @@ func doctor(ctx context.Context, c *projectConfig) error {
 		return err
 	}
 	fmt.Println("Local Docker context:", dockerContext)
-	for _, name := range []string{"kind", "kubectl", "helm"} {
+	tools := []string{"kind", "kubectl"}
+	if c != nil && c.Helm.Chart != "" {
+		tools = append(tools, "helm")
+	}
+	for _, name := range tools {
 		path, err := exec.LookPath(name)
 		if err != nil {
 			return fmt.Errorf("missing %s: install it or add its directory to PATH", name)

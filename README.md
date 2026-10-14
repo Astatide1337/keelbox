@@ -30,7 +30,7 @@ bin/keelbox up -d --config "$project_config"
 ```
 
 The commands below assume a maintained `keelbox.yaml` for your own project.
-It identifies build contexts, the Helm chart and local resources, workload names,
+It identifies optional build contexts, manifest sources, workload names,
 and a localhost endpoint. `up` prints the configured application URL when ready.
 Use your project's actual workload names in place of `api`.
 
@@ -58,6 +58,27 @@ Image builds do not deploy anything. Application tests belong to the application
 its own commands with `exec`, or exercise it through localhost. Use `exec -it`
 for an interactive shell; omit `-it` for scripts. Startup readiness means the
 configured workloads rolled out and local access is available, not that tests passed.
+
+For plain Kubernetes YAML, list files relative to `keelbox.yaml`; no Helm binary
+or chart is required:
+
+```yaml
+version: 1
+name: api
+namespace: local-api
+project: .
+resources: [deploy/local.yaml]
+workloads: {api: deployment/api}
+endpoint: {service: api, port: 80, localPort: 8080}
+```
+
+Existing `helm.chart`, `helm.values`, and staged dependencies remain supported.
+`resources` may also supplement a Helm chart. Keelbox creates the configured
+namespace; input resources must belong to that namespace. Empty files, duplicate
+resource identities, and unsupported kinds (including Kubernetes `List` wrappers)
+fail explicitly. Individual YAML documents support the same restricted application
+kinds as Helm output: ConfigMap, Secret, Service, PersistentVolumeClaim,
+Deployment, StatefulSet, and Job. No templating or directory expansion is implied.
 
 ## Data and ownership
 
@@ -88,7 +109,8 @@ project creates a separate environment; remove the old one deliberately.
 Supported commands: `doctor`, `config`, `build`, `up`, `ps`, `logs`, `exec`,
 `down`, and `env rm --volumes`. The explicit YAML recipe connects existing
 Dockerfiles and Kubernetes configuration to a local workflow. The current pilot
-supports staged Helm charts, declared local dependencies/resources, named
+supports ordinary YAML manifest files or staged Helm charts, declared local
+dependencies/resources, named
 Deployments/StatefulSets, and one endpoint. Rendered resource kinds are restricted
 to this pilot's application resources. Recipes and Dockerfiles are trusted
 executable inputs, not hostile-code sandboxes.
