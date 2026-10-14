@@ -396,7 +396,7 @@ func (e *environment) removeEnvironment(ctx context.Context) error {
 		return err
 	}
 	fmt.Println("Removing owned cluster and its local database data:", e.state.Cluster)
-	cmd := e.kindCommand(ctx, "delete", "cluster", "--name", e.state.Cluster)
+	cmd := e.kindCommand(ctx, "delete", "cluster", "--name", e.state.Cluster, "--kubeconfig", e.kubeconfig)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

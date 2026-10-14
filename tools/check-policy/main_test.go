@@ -51,6 +51,14 @@ func TestSourceSymlinksRejectedBeforeTools(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, link := range []string{"cmd/external", "examples"} {
+		t.Run(link, func(t *testing.T) { assertSourceSymlinkRejected(t, makefile, link) })
+	}
+}
+
+func assertSourceSymlinkRejected(t *testing.T, makefile []byte, link string) {
+	t.Helper()
+	var err error
 	dir := t.TempDir()
 	for _, name := range []string{"cmd", "internal", "tools"} {
 		if err = os.Mkdir(filepath.Join(dir, name), 0700); err != nil {
@@ -66,7 +74,7 @@ func TestSourceSymlinksRejectedBeforeTools(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = os.Symlink(t.TempDir(), filepath.Join(dir, "cmd", "external")); err != nil {
+	if err = os.Symlink(t.TempDir(), filepath.Join(dir, link)); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)

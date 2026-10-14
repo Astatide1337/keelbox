@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keelbox-hello
+  template:
+    metadata:
+      labels:
+        app: keelbox-hello
+    spec:
+      securityContext:
+        fsGroup: 65532
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hello-data
+      containers:
+        - name: api
+          image: keelbox-example/api:development
+          command: ["sh", "-c", "test -f /data/marker || echo retained > /data/marker; exec /hello"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  selector:
+    app: keelbox-hello
+  ports:
+    - port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hello-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 64Mi

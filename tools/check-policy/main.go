@@ -76,7 +76,13 @@ func projectGoVersion() (string, error) {
 }
 
 func checkSourcePolicy() error {
-	for _, directory := range []string{"cmd", "internal", "tools"} {
+	directories := []string{"cmd", "internal", "tools"}
+	if _, err := os.Lstat("examples"); err == nil {
+		directories = append(directories, "examples")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	for _, directory := range directories {
 		if err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr

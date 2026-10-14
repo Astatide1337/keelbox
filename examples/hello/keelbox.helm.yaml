@@ -1,0 +1,17 @@
+version: 1
+name: hello-helm
+project: .
+namespace: hello
+helm:
+  chart: chart
+build:
+  - name: api
+    context: .
+    dockerfile: Dockerfile
+    image: keelbox-example/api
+workloads:
+  api: deployment/hello
+endpoint:
+  service: hello
+  port: 80
+  localPort: 18081
