@@ -29,6 +29,12 @@ bin/keelbox doctor --config "$project_config"
 bin/keelbox up -d --config "$project_config"
 ```
 
+`keelbox doctor` also works outside a project: it checks machine prerequisites
+without creating a cluster or private environment state. When `keelbox.yaml` is
+present, it validates the project and lists its declared workloads and endpoint.
+An explicit `--config` must exist; malformed project configuration is an error.
+Doctor does not establish workload readiness, localhost access, or passing tests.
+
 The commands below assume a maintained `keelbox.yaml` for your own project.
 It identifies optional build contexts, manifest sources, workload names,
 and a localhost endpoint. `up` prints the configured application URL when ready.
