@@ -109,3 +109,18 @@ func TestInterruptedStartupPreservesCancellationAndGuidance(t *testing.T) {
 		t.Fatalf("interrupted startup: %v", err)
 	}
 }
+
+func TestDoctorReportsEachMissingSupportingTool(t *testing.T) {
+	for _, name := range []string{"kind", "kubectl", "helm"} {
+		t.Run(name, func(t *testing.T) {
+			doctorTools(t)
+			if err := os.Remove(filepath.Join(os.Getenv("PATH"), name)); err != nil {
+				t.Fatal(err)
+			}
+			err := doctor(t.Context(), nil)
+			if err == nil || !strings.Contains(err.Error(), "missing "+name) || !strings.Contains(err.Error(), "PATH") {
+				t.Fatalf("missing tool %s: %v", name, err)
+			}
+		})
+	}
+}
