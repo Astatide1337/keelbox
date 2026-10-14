@@ -1,4 +1,0 @@
-resources: [deployment.yaml, server.yaml]
-configMapGenerator:
-  - name: app-settings
-    literals: [probe-path=/healthz]

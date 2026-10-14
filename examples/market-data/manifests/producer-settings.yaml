@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: market-producer-settings
-data:
-  symbol: SYNTH-EDU

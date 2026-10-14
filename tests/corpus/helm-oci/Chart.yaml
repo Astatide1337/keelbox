@@ -1,8 +1,0 @@
-apiVersion: v2
-name: waypoint-oci-corpus
-version: 1.0.0
-description: Read-only rendering fixture for the upstream Podinfo OCI chart; never installs a chart or builds an image.
-dependencies:
-  - name: podinfo
-    version: 6.15.0
-    repository: oci://ghcr.io/stefanprodan/charts
