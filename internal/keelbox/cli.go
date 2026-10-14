@@ -169,20 +169,6 @@ func parseOptions(args []string) (string, bool, bool, []string, error) {
 	return configPath, detached, volumes, rest, nil
 }
 
-func (e *environment) status(ctx context.Context) error {
-	if err := e.validateCluster(ctx); err != nil {
-		return err
-	}
-	out, statusErr := e.kubectl(ctx, "get", "deployments,statefulsets,pods,services,pvc", "-o", "wide")
-	if statusErr != nil {
-		return statusErr
-	}
-	fmt.Print(out)
-	h, helperErr := readHelper(e.dir)
-	fmt.Printf("Cluster: %s; namespace: %s; localhost access: %t\n", e.state.Cluster, e.state.Namespace, helperErr == nil && helperMatches(e.dir, h) && h.Ready)
-	return nil
-}
-
 func (e *environment) workloadCommand(ctx context.Context, rest []string) error {
 	if err := e.validateCluster(ctx); err != nil {
 		return err
