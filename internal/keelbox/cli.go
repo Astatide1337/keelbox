@@ -20,11 +20,8 @@ func Run(ctx context.Context, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	if len(rest) == 0 || rest[0] == "help" || rest[0] == "--help" {
-		fmt.Println("Keelbox — local Kubernetes development (Linux pilot)")
-		fmt.Println("Usage: keelbox <command> --config <keelbox.yaml>")
-		fmt.Println("Commands: doctor, config, build [image], up [-d], ps, logs [-f] <workload>, exec [-it] <workload> -- <command>, down, env rm --volumes")
-		return nil
+	if handled, infoErr := printInformation(rest); handled {
+		return infoErr
 	}
 	if rest[0] == "doctor" {
 		return runDoctor(ctx, configPath, args)

@@ -39,6 +39,8 @@ jobs:
         run: make fuzz
       - name: Build
         run: make build
+      - name: Release archive regressions
+        run: make release-check
   vulnerabilities:
     runs-on: ubuntu-latest
     timeout-minutes: 10

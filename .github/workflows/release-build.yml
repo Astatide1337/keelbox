@@ -1,0 +1,39 @@
+name: Build release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version such as v0.1.0 or v0.1.0-rc.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  archives:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      - name: Test archive integrity and native executable
+        run: make release-check
+      - name: Audit before packaging
+        run: make audit
+      - name: Build review archives (never publishes a release)
+        env:
+          VERSION: ${{ inputs.version }}
+          OUTPUT: ${{ runner.temp }}/keelbox-artifacts
+        run: make release-build
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: keelbox-review-archives
+          path: ${{ runner.temp }}/keelbox-artifacts/*
+          if-no-files-found: error
+          retention-days: 7

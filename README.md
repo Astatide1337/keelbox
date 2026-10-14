@@ -9,6 +9,29 @@ Projects supply their own application source, Dockerfiles, Kubernetes
 configuration, and private local inputs. Keelbox does not distribute third-party
 applications or their development/deployment configurations as examples.
 
+## Binary installation and packaging
+
+Versioned Linux amd64 and arm64 review archives can be built with:
+
+```sh
+VERSION=v0.1.0 OUTPUT=/tmp/keelbox-v0.1.0 make release-build
+```
+
+Use a new output directory each time. Archives contain the executable, dependency
+licenses/notices, and [installation instructions](tools/release/INSTALL.md);
+`checksums.txt` covers both archives. `keelbox --version` identifies the version
+and source commit (with `-dirty` for local edits); source builds identify as `dev`.
+The manual **Build release artifacts** workflow builds and checks archives without
+creating a GitHub release. Ordinary CI never publishes binaries or images.
+
+**Distribution remains blocked until the owner chooses a project license.**
+There is no root LICENSE in this repository; dependency licenses do not grant
+rights to Keelbox's original code. `DISTRIBUTION=1 make release-build` refuses
+without a nonempty root LICENSE. Adding that file still requires owner review
+of licensing and redistribution obligations before separate release approval.
+Build targets are Linux amd64/arm64 only; amd64 is natively exercised and arm64
+is cross-built. Supporting runtimes remain user-installed prerequisites.
+
 ## Build and run
 
 Requires Go 1.25+, Docker Engine, kind, kubectl, and Helm 3 on Linux. Docker must

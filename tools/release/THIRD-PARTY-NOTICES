@@ -1,0 +1,18 @@
+Keelbox's binaries include these unmodified upstream dependencies:
+
+Go runtime and standard library (toolchain version: inspect `go version -m keelbox`)
+https://go.dev/LICENSE — BSD 3-Clause, reproduced in LICENSE-Go.
+
+github.com/moby/patternmatcher v0.6.0
+https://github.com/moby/patternmatcher/tree/v0.6.0
+Copyright 2013-2018 Docker, Inc. Apache 2.0; LICENSE-patternmatcher and NOTICE-patternmatcher.
+
+gopkg.in/yaml.v3 v3.0.1
+https://github.com/go-yaml/yaml/tree/v3.0.1
+Copyright 2006-2011 Kirill Simonov; Copyright 2011-2019 Canonical Ltd.
+MIT and Apache 2.0; LICENSE-yaml. Full Apache terms also appear in
+LICENSE-patternmatcher. The listed licenses apply to upstream components,
+not to Keelbox's original source. No Keelbox project license has been chosen.
+
+Docker, kind, kubectl, and Helm are external prerequisites, not included in
+these archives. Install them from their respective official distributions.
