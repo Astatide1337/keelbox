@@ -102,7 +102,8 @@ func TestStartupCleanupStopsUnresponsiveDescendant(t *testing.T) {
 		t.Fatal(err)
 	}
 	stat, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", childPID))
-	if os.IsNotExist(err) {
+	// The process can disappear after procfs opens its entry but before reading it.
+	if os.IsNotExist(err) || errors.Is(err, syscall.ESRCH) {
 		return
 	}
 	if err != nil {

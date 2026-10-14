@@ -1,5 +1,8 @@
 GO ?= go
 LINT ?= golangci-lint
+ifeq ($(origin LINT),default)
+LINT := golangci-lint
+endif
 LINT_VERSION := $(shell cat .golangci-version)
 GO_BIN := $(shell command -v "$(GO)" 2>/dev/null)
 ifneq ($(GO_BIN),)

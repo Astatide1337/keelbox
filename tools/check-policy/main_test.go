@@ -10,6 +10,42 @@ import (
 	"testing"
 )
 
+func TestMakeUsesPinnedLintDefault(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"Makefile", ".golangci-version"} {
+		data, err := os.ReadFile(filepath.Join("../..", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = os.WriteFile(filepath.Join(dir, name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"cmd", "internal", "tools"} {
+		if err := os.Mkdir(filepath.Join(dir, name), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "golangci-lint"), []byte("#!/bin/sh\ntouch pinned-lint-invoked\ncat .golangci-version\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	command := exec.Command("make", "lint-version")
+	command.Dir = dir
+	// Remove inherited command overrides to expose GNU Make's built-in default.
+	for _, value := range os.Environ() {
+		if !strings.HasPrefix(value, "LINT=") && !strings.HasPrefix(value, "MAKEFLAGS=") && !strings.HasPrefix(value, "MAKEOVERRIDES=") {
+			command.Env = append(command.Env, value)
+		}
+	}
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("default pinned linter must run: %v: %s", err, output)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "pinned-lint-invoked")); err != nil {
+		t.Fatalf("pinned linter must be invoked: %v", err)
+	}
+}
+
 func TestSourceSymlinksRejectedBeforeTools(t *testing.T) {
 	makefile, err := os.ReadFile("../../Makefile")
 	if err != nil {
