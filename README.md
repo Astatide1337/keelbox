@@ -108,7 +108,8 @@ owned local cluster; projects supply their own local dependencies and inputs.
 ## Contributing and architecture
 
 The repository contains the CLI entry point under `cmd`, implementation and its
-behavior tests under `internal`, this maintained README, repository instructions,
+behavior tests under `internal`, contributor policy tooling under `tools`, this
+maintained README, repository instructions,
 and build/lint/CI configuration. Research, generated output, private state, tool downloads, and compiled binaries
 are not tracked source. `make check-layout` enforces removal of the old research
 directories.
@@ -135,17 +136,27 @@ compatibility contract. A new package or interface must hide a real independent
 responsibility or support a demonstrated caller; a package per command would
 spread lifecycle knowledge without creating useful isolation.
 
-Development requires Go 1.25+, make, and **golangci-lint v2.14.0**. Install the
-matching binary from the [pinned release](https://github.com/golangci/golangci-lint/releases/tag/v2.14.0)
-and put it on PATH. See the [official installation guide](https://golangci-lint.run/docs/welcome/install/).
+Development requires the Go version in `go.mod`, make, and the golangci-lint
+version pinned in [.golangci-version](.golangci-version). Install that version
+and put it on PATH using the [official installation guide](https://golangci-lint.run/docs/welcome/install/).
 These are contributor tools, separate from application runtime prerequisites.
 
 ```sh
 make fmt    # Apply gofmt and goimports.
 make lint   # Verify the pinned version/config and inspect all code, including tests.
 make test   # Run behavior tests with race detection.
-make check  # Check layout, lint, tests, and build the CLI.
+make check  # Check layout, lint, policy enforcement, race tests, and CLI build.
 ```
+
+For tools outside PATH, pass `GO=/absolute/path/to/go` and
+`LINT=/absolute/path/to/golangci-lint` to make. All formatting and build/check
+commands reject source symlinks before invoking tools.
+
+`make check-policy` checks the private implementation API and rejects blanket
+lint suppressions. It also runs deliberately invalid, first-party snippets in
+temporary directories to prove important lint rules reject violations. These
+fixtures use the checked-in configuration; weakening a protected rule fails the
+gate even when ordinary source has no violations.
 
 The lint configuration rejects ignored errors (including explicit blank
 assignments), unchecked type assertions, shadowed variables, incorrect error
@@ -154,7 +165,7 @@ cyclomatic complexity of 20. Formatting and imports are also checked. There are
 no blanket exclusions or test exemptions. Specific lint suppressions require an
 explanation and review; changing rules to evade findings is not a fix.
 
-CI runs the same lint version, layout check, race tests, and build for pushes and
+CI runs the same pinned lint version, layout and policy checks, race tests, and build for pushes and
 pull requests. Actions are pinned to commit IDs and the workflow has read-only
 repository permissions. Repository rules still need to require this check before
 merging; merely adding a workflow does not enforce branch protection.

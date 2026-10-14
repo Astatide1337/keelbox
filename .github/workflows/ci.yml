@@ -23,11 +23,16 @@ jobs:
           cache: true
       - name: Repository layout
         run: make check-layout
+      - name: Read lint version
+        id: lint-version
+        run: printf 'version=%s\n' "$(cat .golangci-version)" >> "$GITHUB_OUTPUT"
       - name: Lint
         uses: golangci/golangci-lint-action@d583c34f0599d37dbac4a198b9c83201be380893 # v9.3.0
         with:
-          version: v2.14.0
+          version: v${{ steps.lint-version.outputs.version }}
           args: --config=.golangci.yml ./...
+      - name: Quality-policy enforcement
+        run: make check-policy
       - name: Tests and race detection
         run: make test
       - name: Build
