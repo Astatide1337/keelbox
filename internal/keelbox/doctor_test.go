@@ -117,7 +117,7 @@ func TestDoctorReportsEachMissingSupportingTool(t *testing.T) {
 			if err := os.Remove(filepath.Join(os.Getenv("PATH"), name)); err != nil {
 				t.Fatal(err)
 			}
-			err := doctor(t.Context(), nil)
+			err := doctor(t.Context(), &projectConfig{Helm: helmSpec{Chart: "chart"}})
 			if err == nil || !strings.Contains(err.Error(), "missing "+name) || !strings.Contains(err.Error(), "PATH") {
 				t.Fatalf("missing tool %s: %v", name, err)
 			}
