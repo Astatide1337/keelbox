@@ -47,6 +47,14 @@ bin/keelbox exec --config "$project_config" api -- sh
 bin/keelbox down --config "$project_config"
 ```
 
+`ps` observes each declared Deployment or StatefulSet through its recorded owned
+identity. It reports ready/desired replicas, unobserved generations, controller
+failures, missing resources, and failed observations. Startup completion, a
+reachable localhost listener, and application verification are separate results.
+Readiness describes Kubernetes rollout state; it does not certify application
+behavior. Controller condition messages are shown when Kubernetes supplies them;
+use `logs` or Kubernetes tooling for detailed Pod-level diagnostics.
+
 `up -d` returns after readiness and loopback access setup. A recorded,
 environment-scoped helper manages `kubectl port-forward` and retries after Pod
 replacement. Foreground `up` attaches to a declared workload's output; Ctrl+C
