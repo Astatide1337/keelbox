@@ -19,7 +19,7 @@ if (cd "$work/unlicensed" && VERSION=v0.0.0-test DISTRIBUTION=1 OUTPUT="$work/bl
 fi
 grep -q 'owner must choose' "$work/license.log"
 test ! -e "$work/blocked"
-VERSION=v0.0.0-test OUTPUT="$work/artifacts" bash tools/release/build.sh
+VERSION=v0.0.0-test DISTRIBUTION=1 OUTPUT="$work/artifacts" bash tools/release/build.sh
 if VERSION=v0.0.0-test OUTPUT="$work/artifacts" bash tools/release/build.sh > "$work/reuse.log" 2>&1; then
   printf 'Reusing an artifact directory unexpectedly succeeded.\n' >&2
   exit 1
@@ -28,9 +28,12 @@ fi
 for arch in amd64 arm64; do
   name="keelbox_v0.0.0-test_linux_${arch}"
   tar -xzf "$work/artifacts/$name.tar.gz" -C "$work"
-  for file in keelbox INSTALL.md THIRD-PARTY-NOTICES LICENSE-Go LICENSE-patternmatcher LICENSE-yaml NOTICE-patternmatcher; do
+  for file in keelbox INSTALL.md LICENSE NOTICE THIRD-PARTY-NOTICES LICENSE-Go LICENSE-patternmatcher LICENSE-yaml NOTICE-patternmatcher; do
     test -s "$work/$name/$file"
   done
+  cmp LICENSE "$work/$name/LICENSE"
+  cmp NOTICE "$work/$name/NOTICE"
+  test ! -e "$work/$name/LICENSE-STATUS.txt"
   test -x "$work/$name/keelbox"
 done
 case $(uname -m) in

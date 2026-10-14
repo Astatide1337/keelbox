@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Review artifacts only. This script never uploads or publishes anything.
+# Build local artifacts only. This script never uploads or publishes anything.
 version=${VERSION:?Set VERSION to vMAJOR.MINOR.PATCH (optionally -prerelease)}
 if [[ ! $version =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$ ]]; then
   printf 'Invalid VERSION: use vMAJOR.MINOR.PATCH, optionally -prerelease.\n' >&2
@@ -36,6 +36,9 @@ for arch in amd64 arm64; do
     cp LICENSE "$stage/$name/LICENSE"
   else
     printf 'Review artifact only. Keelbox has no owner-selected project license. Distribution and release publication remain blocked.\n' > "$stage/$name/LICENSE-STATUS.txt"
+  fi
+  if [[ -s NOTICE ]]; then
+    cp NOTICE "$stage/$name/NOTICE"
   fi
   tar -C "$stage" -czf "$output/$name.tar.gz" "$name"
 done

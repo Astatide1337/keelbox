@@ -11,10 +11,10 @@ applications or their development/deployment configurations as examples.
 
 ## Binary installation and packaging
 
-Versioned Linux amd64 and arm64 review archives can be built with:
+Versioned Linux amd64 and arm64 archives can be built with:
 
 ```sh
-VERSION=v0.1.0 OUTPUT=/tmp/keelbox-v0.1.0 make release-build
+VERSION=v0.1.0 DISTRIBUTION=1 OUTPUT=/tmp/keelbox-v0.1.0 make release-build
 ```
 
 Use a new output directory each time. Archives contain the executable, dependency
@@ -24,11 +24,11 @@ and source commit (with `-dirty` for local edits); source builds identify as `de
 The manual **Build release artifacts** workflow builds and checks archives without
 creating a GitHub release. Ordinary CI never publishes binaries or images.
 
-**Distribution remains blocked until the owner chooses a project license.**
-There is no root LICENSE in this repository; dependency licenses do not grant
-rights to Keelbox's original code. `DISTRIBUTION=1 make release-build` refuses
-without a nonempty root LICENSE. Adding that file still requires owner review
-of licensing and redistribution obligations before separate release approval.
+Keelbox is licensed under [Apache License 2.0](LICENSE), copyright 2026 Soham
+Bhagat; see [NOTICE](NOTICE). Archives preserve the project license and notices
+alongside upstream licenses and attribution. `DISTRIBUTION=1 make release-build`
+refuses without a nonempty root LICENSE. Publishing a release remains a separate
+owner-authorized operation.
 Build targets are Linux amd64/arm64 only; amd64 is natively exercised and arm64
 is cross-built. Supporting runtimes remain user-installed prerequisites.
 

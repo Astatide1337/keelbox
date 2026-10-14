@@ -12,7 +12,7 @@ https://github.com/go-yaml/yaml/tree/v3.0.1
 Copyright 2006-2011 Kirill Simonov; Copyright 2011-2019 Canonical Ltd.
 MIT and Apache 2.0; LICENSE-yaml. Full Apache terms also appear in
 LICENSE-patternmatcher. The listed licenses apply to upstream components,
-not to Keelbox's original source. No Keelbox project license has been chosen.
+not to Keelbox's original source, which is licensed under Apache 2.0 (LICENSE).
 
 Docker, kind, kubectl, and Helm are external prerequisites, not included in
 these archives. Install them from their respective official distributions.

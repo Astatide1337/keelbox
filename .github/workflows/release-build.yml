@@ -26,14 +26,15 @@ jobs:
         run: make release-check
       - name: Audit before packaging
         run: make audit
-      - name: Build review archives (never publishes a release)
+      - name: Build archives (never publishes a release)
         env:
           VERSION: ${{ inputs.version }}
+          DISTRIBUTION: '1'
           OUTPUT: ${{ runner.temp }}/keelbox-artifacts
         run: make release-build
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: keelbox-review-archives
+          name: keelbox-archives
           path: ${{ runner.temp }}/keelbox-artifacts/*
           if-no-files-found: error
           retention-days: 7

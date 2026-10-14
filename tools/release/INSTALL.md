@@ -1,8 +1,8 @@
 # Installing a Keelbox binary
 
-These are review artifacts until the owner chooses a project license and
-separately authorizes publication. There is currently no published release
-promised by this document.
+Keelbox is licensed under Apache License 2.0; see LICENSE and NOTICE.
+Building archives does not publish a release. There is currently no published
+release promised by this document.
 
 Build targets: Linux amd64 (x86-64 baseline) and Linux arm64 (ARMv8 baseline),
 CGO disabled. Native workflow validation currently covers amd64 only; arm64
