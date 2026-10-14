@@ -59,7 +59,7 @@ func copyDirectory(source, dest string) error {
 		return os.WriteFile(target, data, 0600)
 	})
 }
-func (e *environment) render(ctx context.Context) (objects []object, err error) {
+func (e *environment) renderHelm(ctx context.Context) (objects []object, err error) {
 	temp, err := os.MkdirTemp(e.dir, "render-")
 	if err != nil {
 		return nil, err
@@ -89,20 +89,33 @@ func (e *environment) render(ctx context.Context) (objects []object, err error) 
 	if err != nil {
 		return nil, err
 	}
-	objects, err = decodeObjects([]byte(rendered))
-	if err != nil {
-		return nil, err
+	return decodeObjects([]byte(rendered))
+}
+func (e *environment) render(ctx context.Context) ([]object, error) {
+	var objects []object
+	if e.config.Helm.Chart != "" {
+		rendered, err := e.renderHelm(ctx)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, rendered...)
 	}
 	for _, path := range e.config.Resources {
 		data, readErr := os.ReadFile(resolve(e.config.Dir, path))
 		if readErr != nil {
-			return nil, readErr
+			return nil, fmt.Errorf("manifest %s: %w", path, readErr)
 		}
 		extra, decodeErr := decodeObjects(data)
 		if decodeErr != nil {
-			return nil, decodeErr
+			return nil, fmt.Errorf("manifest %s: %w", path, decodeErr)
+		}
+		if len(extra) == 0 {
+			return nil, fmt.Errorf("manifest %s contains no resources", path)
 		}
 		objects = append(objects, extra...)
+	}
+	if len(objects) == 0 {
+		return nil, fmt.Errorf("application manifests contain no resources")
 	}
 	if e.config.EnvFile != "" {
 		data, envErr := loadEnv(resolve(e.config.Dir, e.config.EnvFile))
