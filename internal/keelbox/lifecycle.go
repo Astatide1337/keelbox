@@ -93,6 +93,9 @@ func (e *environment) up(ctx context.Context) error {
 			return err
 		}
 	}
+	if err = e.reconcileResources(ctx, objects); err != nil {
+		return err
+	}
 	targets := []string{}
 	for _, target := range e.config.Workloads {
 		targets = append(targets, target)
@@ -351,33 +354,14 @@ func (e *environment) stopDatabases(ctx context.Context) error {
 		if actual == nil {
 			continue
 		}
-		if err = e.setReplicas(ctx, r, 0); err != nil {
+		if err = e.verifyRecordedResource(actual, r); err != nil {
 			return err
 		}
-		deadline := time.Now().Add(120 * time.Second)
-		for {
-			actual, err = e.observe(ctx, r)
-			if err != nil {
-				return err
-			}
-			if actual == nil {
-				return fmt.Errorf("retained StatefulSet disappeared")
-			}
-			count, replicaErr := observedReplicas(actual)
-			if replicaErr != nil {
-				return replicaErr
-			}
-			if count == 0 {
-				break
-			}
-			if time.Now().After(deadline) {
-				return fmt.Errorf("timed out stopping %s", r.Name)
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(time.Second):
-			}
+		if err = safeStatefulRetention(actual); err != nil {
+			return err
+		}
+		if err = e.stopRetainedStatefulSet(ctx, r); err != nil {
+			return err
 		}
 	}
 	return nil
